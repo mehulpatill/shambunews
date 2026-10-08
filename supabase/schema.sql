@@ -59,6 +59,31 @@ create index if not exists articles_breaking_idx
 create index if not exists articles_views_idx
   on public.articles(views desc, status);
 
+create table if not exists public.tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  slug text not null unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.article_tags (
+  article_id uuid not null,
+  tag_id uuid not null,
+  created_at timestamptz not null default now(),
+  primary key (article_id, tag_id),
+  constraint article_tags_article_id_fkey
+    foreign key (article_id) references public.articles(id) on delete cascade,
+  constraint article_tags_tag_id_fkey
+    foreign key (tag_id) references public.tags(id) on delete cascade
+);
+
+create index if not exists article_tags_tag_id_idx
+  on public.article_tags(tag_id);
+
+create unique index if not exists tags_name_lower_idx
+  on public.tags(lower(name));
+
 create or replace function public.set_category_updated_at()
 returns trigger
 language plpgsql
@@ -68,6 +93,101 @@ begin
   return NEW;
 end;
 $$;
+
+create or replace function public.sync_article_tags(p_article_id uuid)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  update public.articles a
+  set tags = coalesce((
+    select array_agg(t.name order by t.name)
+    from public.article_tags atg
+    join public.tags t on t.id = atg.tag_id
+    where atg.article_id = p_article_id
+  ), '{}'::text[])
+  where a.id = p_article_id;
+$$;
+
+create or replace function public.article_tags_sync_trigger()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  perform public.sync_article_tags(coalesce(NEW.article_id, OLD.article_id));
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+drop trigger if exists article_tags_sync_after_change on public.article_tags;
+create trigger article_tags_sync_after_change
+after insert or update or delete on public.article_tags
+for each row execute function public.article_tags_sync_trigger();
+
+create or replace function public.tags_name_sync_trigger()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if NEW.name is distinct from OLD.name then
+    update public.articles a
+    set tags = array_replace(a.tags, OLD.name, NEW.name)
+    where OLD.name = any(a.tags);
+  end if;
+  return NEW;
+end;
+$$;
+
+drop trigger if exists tags_name_sync_after_update on public.tags;
+create trigger tags_name_sync_after_update
+after update of name on public.tags
+for each row execute function public.tags_name_sync_trigger();
+
+create or replace function public.set_article_tags(
+  p_article_id uuid,
+  p_tag_ids uuid[]
+)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  delete from public.article_tags where article_id = p_article_id;
+  insert into public.article_tags(article_id, tag_id)
+  select p_article_id, t.id
+  from public.tags t
+  where t.id = any(coalesce(p_tag_ids, '{}'::uuid[]));
+  perform public.sync_article_tags(p_article_id);
+end;
+$$;
+
+grant execute on function public.set_article_tags(uuid, uuid[]) to authenticated;
+
+grant select on public.tags to anon, authenticated;
+grant select on public.article_tags to anon, authenticated;
+grant insert, update, delete on public.tags to authenticated;
+grant insert, update, delete on public.article_tags to authenticated;
+
+create or replace function public.set_tag_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  NEW.updated_at := now();
+  return NEW;
+end;
+$$;
+
+drop trigger if exists tags_set_updated_at on public.tags;
+create trigger tags_set_updated_at
+before update on public.tags
+for each row execute function public.set_tag_updated_at();
 
 create or replace function public.set_article_updated_at()
 returns trigger
@@ -86,7 +206,6 @@ begin
      and NEW.published_at is not distinct from OLD.published_at
      and NEW.is_featured = OLD.is_featured
      and NEW.is_breaking = OLD.is_breaking
-     and NEW.tags = OLD.tags
   then
     NEW.updated_at := OLD.updated_at;
   else
@@ -157,12 +276,16 @@ $$;
 grant usage on schema public to anon, authenticated;
 grant select on public.categories to anon, authenticated;
 grant select on public.articles to anon, authenticated;
+grant select on public.tags to anon, authenticated;
+grant select on public.article_tags to anon, authenticated;
 revoke select on public.media from anon, authenticated;
 grant select (id, mime, width, height, bytes, alt_text, created_at)
   on public.media to anon, authenticated;
 
 grant insert, update, delete on public.categories to authenticated;
 grant insert, update, delete on public.articles to authenticated;
+grant insert, update, delete on public.tags to authenticated;
+grant insert, update, delete on public.article_tags to authenticated;
 grant insert, update, delete on public.media to authenticated;
 
 grant execute on function public.increment_article_views(uuid) to anon, authenticated;
@@ -171,6 +294,8 @@ grant execute on function public.upload_media(text, text, integer, integer, text
 
 alter table public.categories enable row level security;
 alter table public.articles enable row level security;
+alter table public.tags enable row level security;
+alter table public.article_tags enable row level security;
 alter table public.media enable row level security;
 
 drop policy if exists categories_public_select on public.categories;
@@ -182,6 +307,32 @@ using (true);
 drop policy if exists categories_authenticated_all on public.categories;
 create policy categories_authenticated_all
 on public.categories for all
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists tags_public_select on public.tags;
+create policy tags_public_select
+on public.tags for select
+to anon, authenticated
+using (true);
+
+drop policy if exists tags_authenticated_all on public.tags;
+create policy tags_authenticated_all
+on public.tags for all
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists article_tags_public_select on public.article_tags;
+create policy article_tags_public_select
+on public.article_tags for select
+to anon, authenticated
+using (true);
+
+drop policy if exists article_tags_authenticated_all on public.article_tags;
+create policy article_tags_authenticated_all
+on public.article_tags for all
 to authenticated
 using (true)
 with check (true);

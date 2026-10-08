@@ -24,6 +24,7 @@ export default async function AdminDashboardLayout({
             <Link href="/admin/articles">Articles</Link>
             <Link href="/admin/articles/new">New article</Link>
             <Link href="/admin/categories">Sections</Link>
+            <Link href="/admin/tags">Tags</Link>
           </nav>
 
           <div className="admin-sidebar-note">

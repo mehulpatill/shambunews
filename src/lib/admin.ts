@@ -88,6 +88,10 @@ export async function getAdminArticle(id: string) {
 }
 
 export async function saveArticle(id: string | null, input: ArticleInput) {
+  if (!input.cover_media_id) {
+    throw new Error("Cover image is required before saving a story.");
+  }
+
   const slug = await uniqueSlug(input.title, id || undefined);
   const cleanBody = sanitizeArticleHtml(input.body_html);
   const publishedAt = normalizePublishedAt(input.published_at, input.status);
@@ -125,8 +129,21 @@ export async function saveArticle(id: string | null, input: ArticleInput) {
         }
       );
 
+  const saved = result[0];
+  if (saved?.id) {
+    const availableTags = await listTags();
+    const selectedNames = Array.from(new Set(input.tags || []));
+    const selectedIds = availableTags
+      .filter((tag) => selectedNames.includes(tag.name))
+      .map((tag) => tag.id);
+    await adminRest("/rest/v1/rpc/set_article_tags", {
+      method: "POST",
+      body: JSON.stringify({ p_article_id: saved.id, p_tag_ids: selectedIds })
+    });
+  }
+
   revalidateTag(siteConfig.cacheTag, { expire: 0 });
-  return result[0];
+  return saved;
 }
 
 export async function publishArticle(id: string) {
@@ -235,6 +252,61 @@ export async function updateCategory(
 export async function deleteCategory(id: string) {
   await adminRest(
     "/rest/v1/categories?id=eq." + encodeURIComponent(id),
+    { method: "DELETE" }
+  );
+  revalidateTag(siteConfig.cacheTag, { expire: 0 });
+}
+
+export async function listTags() {
+  return await adminRest<any[]>(
+    "/rest/v1/tags?select=id,name,slug,created_at,updated_at&order=name.asc"
+  );
+}
+
+async function uniqueTagSlug(name: string, id?: string) {
+  const base = slugify(name);
+  const existing = await adminRest<{ id: string; slug: string }[]>(
+    "/rest/v1/tags?select=id,slug&slug=like." + encodeURIComponent(base + "%")
+  );
+  const taken = new Set(existing.filter((x) => x.id !== id).map((x) => x.slug));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(base + "-" + n)) n += 1;
+  return base + "-" + n;
+}
+
+export async function createTag(name: string) {
+  const clean = name.trim();
+  if (!clean) throw new Error("Tag name is required");
+  const slug = await uniqueTagSlug(clean);
+  const result = await adminRest<any[]>("/rest/v1/tags", {
+    method: "POST",
+    headers: { prefer: "return=representation" },
+    body: JSON.stringify({ name: clean, slug })
+  });
+  revalidateTag(siteConfig.cacheTag, { expire: 0 });
+  return result[0];
+}
+
+export async function updateTag(id: string, name: string) {
+  const clean = name.trim();
+  if (!clean) throw new Error("Tag name is required");
+  const slug = await uniqueTagSlug(clean, id);
+  const result = await adminRest<any[]>(
+    "/rest/v1/tags?id=eq." + encodeURIComponent(id),
+    {
+      method: "PATCH",
+      headers: { prefer: "return=representation" },
+      body: JSON.stringify({ name: clean, slug })
+    }
+  );
+  revalidateTag(siteConfig.cacheTag, { expire: 0 });
+  return result[0];
+}
+
+export async function deleteTag(id: string) {
+  await adminRest(
+    "/rest/v1/tags?id=eq." + encodeURIComponent(id),
     { method: "DELETE" }
   );
   revalidateTag(siteConfig.cacheTag, { expire: 0 });

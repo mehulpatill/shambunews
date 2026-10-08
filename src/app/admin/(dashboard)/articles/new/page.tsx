@@ -1,11 +1,11 @@
 import Link from "next/link";
 import ArticleForm from "@/components/admin/ArticleForm";
-import { listCategories } from "@/lib/admin";
+import { listCategories, listTags } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewArticlePage() {
-  const categories = await listCategories();
+  const [categories, tags] = await Promise.all([listCategories(), listTags()]);
 
   return (
     <>
@@ -22,7 +22,7 @@ export default async function NewArticlePage() {
         <div className="notice">Create a section before publishing your first article.</div>
       )}
 
-      <ArticleForm categories={categories} />
+      <ArticleForm categories={categories} availableTags={tags} />
     </>
   );
 }

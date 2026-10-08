@@ -31,10 +31,12 @@ function plainTextFromHtml(html: string) {
 
 export default function ArticleForm({
   article,
-  categories
+  categories,
+  availableTags
 }: {
   article?: any;
   categories: any[];
+  availableTags: any[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -52,7 +54,7 @@ export default function ArticleForm({
   });
 
   const [excerptTouched, setExcerptTouched] = useState(Boolean(article?.excerpt));
-  const [tagText, setTagText] = useState(Array.isArray(article?.tags) ? article.tags.join(", ") : "");
+  const [selectedTags, setSelectedTags] = useState<string[]>(Array.isArray(article?.tags) ? article.tags : []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -79,11 +81,7 @@ export default function ArticleForm({
 
     const payload = {
       ...form,
-      tags: tagText
-        .split(",")
-        .map((tag: string) => tag.trim())
-        .filter(Boolean)
-        .slice(0, 20),
+      tags: selectedTags.slice(0, 20),
       published_at: fromISTDateTimeValue(form.published_at)
     };
 
@@ -181,12 +179,35 @@ export default function ArticleForm({
 
             <div className="field">
               <label>Tags</label>
-              <input
-                className="input"
-                value={tagText}
-                onChange={(e) => setTagText(e.target.value)}
-                placeholder="comma, separated, topics"
-              />
+              {availableTags.length ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {availableTags.map((tag) => {
+                    const checked = selectedTags.includes(tag.name);
+                    return (
+                      <label
+                        key={tag.id}
+                        className="check-row"
+                        style={{ width: "auto", padding: "7px 10px", border: "1px solid #d8cfc2", borderRadius: 999 }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedTags((current) =>
+                              checked
+                                ? current.filter((name) => name !== tag.name)
+                                : [...current, tag.name]
+                            )
+                          }
+                        />
+                        {tag.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="notice">Create tags in Taxonomy → Tags before adding them to a story.</div>
+              )}
             </div>
 
             <div className="field">
@@ -220,9 +241,19 @@ export default function ArticleForm({
 
             {error && <div className="notice danger-notice">{error}</div>}
 
-            <button className="btn primary" style={{ width: "100%" }} disabled={saving}>
+            <button
+              className="btn primary"
+              style={{ width: "100%" }}
+              disabled={saving || !form.cover_media_id}
+              title={!form.cover_media_id ? "Upload a cover image before saving" : undefined}
+            >
               {saving ? "Saving…" : article ? "Update story" : "Save story"}
             </button>
+            {!form.cover_media_id && (
+              <div className="meta" style={{ marginTop: 8, color: "#8c1717" }}>
+                Upload a cover image before saving this story.
+              </div>
+            )}
 
             {article && (
               <button
