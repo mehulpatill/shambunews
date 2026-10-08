@@ -176,17 +176,33 @@ export async function listCategories() {
   );
 }
 
+async function uniqueCategorySlug(nameEn: string, id?: string) {
+  const base = slugify(nameEn);
+  const existing = await adminRest<{ id: string; slug: string }[]>(
+    "/rest/v1/categories?select=id,slug&slug=like." + encodeURIComponent(base + "%")
+  );
+
+  const taken = new Set(existing.filter((x) => x.id !== id).map((x) => x.slug));
+  if (!taken.has(base)) return base;
+
+  let n = 2;
+  while (taken.has(base + "-" + n)) n += 1;
+  return base + "-" + n;
+}
+
 export async function createCategory(input: {
   name_en: string;
   name_hi: string;
-  slug: string;
   sort_order?: number;
 }) {
+  const slug = await uniqueCategorySlug(input.name_en);
   const result = await adminRest<any[]>("/rest/v1/categories", {
     method: "POST",
     headers: { prefer: "return=representation" },
     body: JSON.stringify({
-      ...input,
+      name_en: input.name_en,
+      name_hi: input.name_hi,
+      slug,
       sort_order: input.sort_order || 0
     })
   });
@@ -196,14 +212,20 @@ export async function createCategory(input: {
 
 export async function updateCategory(
   id: string,
-  input: { name_en: string; name_hi: string; slug: string; sort_order?: number }
+  input: { name_en: string; name_hi: string; sort_order?: number }
 ) {
+  const slug = await uniqueCategorySlug(input.name_en, id);
   const result = await adminRest<any[]>(
     "/rest/v1/categories?id=eq." + encodeURIComponent(id),
     {
       method: "PATCH",
       headers: { prefer: "return=representation" },
-      body: JSON.stringify(input)
+      body: JSON.stringify({
+        name_en: input.name_en,
+        name_hi: input.name_hi,
+        slug,
+        sort_order: input.sort_order || 0
+      })
     }
   );
   revalidateTag(siteConfig.cacheTag, { expire: 0 });

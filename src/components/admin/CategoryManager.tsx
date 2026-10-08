@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function CategoryManager({ initial }: { initial: any[] }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
-  const [form, setForm] = useState({ name_en: "", name_hi: "", slug: "", sort_order: "0" });
+  const [form, setForm] = useState({ name_en: "", name_hi: "", sort_order: "0" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -26,7 +26,7 @@ export default function CategoryManager({ initial }: { initial: any[] }) {
       return;
     }
     setItems((current) => [...current, data].sort((a, b) => a.sort_order - b.sort_order));
-    setForm({ name_en: "", name_hi: "", slug: "", sort_order: "0" });
+    setForm({ name_en: "", name_hi: "", sort_order: "0" });
     setSaving(false);
     router.refresh();
   }
@@ -36,13 +36,10 @@ export default function CategoryManager({ initial }: { initial: any[] }) {
     if (nameEn === null) return;
     const nameHi = window.prompt("Hindi name", item.name_hi);
     if (nameHi === null) return;
-    const slug = window.prompt("Slug", item.slug);
-    if (slug === null) return;
-
     const response = await fetch("/api/categories/" + item.id, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...item, name_en: nameEn, name_hi: nameHi, slug })
+      body: JSON.stringify({ name_en: nameEn, name_hi: nameHi, sort_order: item.sort_order })
     });
     const data = await response.json();
     if (!response.ok) return setError(data.error || "Could not update section");
@@ -64,7 +61,16 @@ export default function CategoryManager({ initial }: { initial: any[] }) {
       <form onSubmit={add} className="category-create-grid">
         <input className="input" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} placeholder="English name" required />
         <input className="input" value={form.name_hi} onChange={(e) => setForm({ ...form, name_hi: e.target.value })} placeholder="Hindi name" required />
-        <input className="input" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="slug" required />
+        <div className="input" style={{ display: "flex", alignItems: "center", color: form.name_en ? "#222" : "#999" }}>
+          /{form.name_en
+            ? form.name_en.trim().toLowerCase()
+                .normalize("NFKC")
+                .replace(/[^\p{L}\p{N}\s-]/gu, "")
+                .replace(/\s+/g, "-")
+                .replace(/-+/g, "-")
+                .replace(/^-+|-+$/g, "") || "section"
+            : "slug-auto"}
+        </div>
         <input className="input" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} placeholder="Order" />
         <button className="btn primary" disabled={saving}>{saving ? "Adding…" : "Add section"}</button>
       </form>

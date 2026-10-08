@@ -10,10 +10,14 @@ export async function PATCH(
     await requireToken();
     const { id } = await params;
     const body = await request.json();
+    const nameEn = String(body.name_en || "").trim();
+    const nameHi = String(body.name_hi || "").trim();
+    if (!nameEn || !nameHi) {
+      return NextResponse.json({ error: "English name and Hindi name are required" }, { status: 400 });
+    }
     return NextResponse.json(await updateCategory(id, {
-      name_en: String(body.name_en || "").trim(),
-      name_hi: String(body.name_hi || "").trim(),
-      slug: String(body.slug || "").trim().toLowerCase(),
+      name_en: nameEn,
+      name_hi: nameHi,
       sort_order: Number(body.sort_order) || 0
     }));
   } catch (error: any) {

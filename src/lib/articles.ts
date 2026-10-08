@@ -225,7 +225,7 @@ export async function incrementView(articleId: string) {
 }
 
 export function mediaUrl(id: string | null | undefined) {
-  return id ? getSiteUrl().replace(/\/$/, "") + "/media/" + id : null;
+  return id ? "/media/" + id : null;
 }
 
 export function categoryName(

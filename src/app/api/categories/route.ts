@@ -17,14 +17,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const nameEn = String(body.name_en || "").trim();
     const nameHi = String(body.name_hi || "").trim();
-    const slug = String(body.slug || "").trim().toLowerCase();
-    if (!nameEn || !nameHi || !slug) {
-      return NextResponse.json({ error: "English name, Hindi name and slug are required" }, { status: 400 });
+    if (!nameEn || !nameHi) {
+      return NextResponse.json({ error: "English name and Hindi name are required" }, { status: 400 });
     }
     return NextResponse.json(await createCategory({
       name_en: nameEn,
       name_hi: nameHi,
-      slug,
       sort_order: Number(body.sort_order) || 0
     }), { status: 201 });
   } catch (error: any) {

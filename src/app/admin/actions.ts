@@ -33,7 +33,6 @@ export async function deleteArticleAction(id: string) {
 export async function createCategoryAction(input: {
   name_en: string;
   name_hi: string;
-  slug: string;
   sort_order?: number;
 }) {
   await createCategory(input);
@@ -42,7 +41,7 @@ export async function createCategoryAction(input: {
 
 export async function updateCategoryAction(
   id: string,
-  input: { name_en: string; name_hi: string; slug: string; sort_order?: number }
+  input: { name_en: string; name_hi: string; sort_order?: number }
 ) {
   await updateCategory(id, input);
   redirect("/admin/categories");
