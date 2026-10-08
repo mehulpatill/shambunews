@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound(){return <div className="page"><div className="container" style={{textAlign:"center",padding:"90px 0"}}><div className="kicker">404</div><h1 style={{fontSize:56,margin:"10px 0"}}>Story not found</h1><p className="excerpt">The page you requested does not exist or may have been unpublished.</p><Link className="btn primary" href="/">Back to home</Link></div></div>}
