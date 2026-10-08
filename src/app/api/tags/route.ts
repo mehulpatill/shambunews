@@ -15,9 +15,10 @@ export async function POST(request: Request) {
   try {
     await requireToken();
     const body = await request.json();
-    const name = String(body.name || "").trim();
-    if (!name) return NextResponse.json({ error: "Tag name is required" }, { status: 400 });
-    return NextResponse.json(await createTag(name), { status: 201 });
+    const nameEn = String(body.name_en || "").trim();
+    const nameHi = String(body.name_hi || "").trim();
+    if (!nameEn || !nameHi) return NextResponse.json({ error: "English and Hindi tag names are required" }, { status: 400 });
+    return NextResponse.json(await createTag(nameEn, nameHi), { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Create failed" }, { status: error?.status || 400 });
   }

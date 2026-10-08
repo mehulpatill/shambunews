@@ -34,6 +34,16 @@ export type Article = {
     bytes: number | null;
     alt_text?: string | null;
   } | null;
+  tag_links?: {
+    tag_id: string;
+    tag?: {
+      id: string;
+      name: string;
+      name_en: string;
+      name_hi: string;
+      slug: string;
+    } | null;
+  }[];
 };
 
 export type Media = {

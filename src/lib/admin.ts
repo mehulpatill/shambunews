@@ -15,10 +15,11 @@ export type ArticleInput = {
   is_featured?: boolean;
   is_breaking?: boolean;
   tags?: string[];
+  tag_ids?: string[];
 };
 
 const adminArticleSelect =
-  "*,category:categories!articles_category_id_fkey(id,slug,name_en,name_hi,sort_order),cover:media!articles_cover_media_id_fkey(id,mime,width,height,bytes)";
+  "*,category:categories!articles_category_id_fkey(id,slug,name_en,name_hi,sort_order),cover:media!articles_cover_media_id_fkey(id,mime,width,height,bytes),tag_links:article_tags!article_tags_article_id_fkey(tag_id,tag:tags!article_tags_tag_id_fkey(id,name,name_en,name_hi,slug))";
 
 function slugify(input: string) {
   return input
@@ -131,11 +132,14 @@ export async function saveArticle(id: string | null, input: ArticleInput) {
 
   const saved = result[0];
   if (saved?.id) {
-    const availableTags = await listTags();
-    const selectedNames = Array.from(new Set(input.tags || []));
-    const selectedIds = availableTags
-      .filter((tag) => selectedNames.includes(tag.name))
-      .map((tag) => tag.id);
+    let selectedIds = Array.from(new Set(input.tag_ids || []));
+    if (!selectedIds.length && (input.tags || []).length) {
+      const availableTags = await listTags();
+      const selectedNames = new Set(input.tags || []);
+      selectedIds = availableTags
+        .filter((tag) => selectedNames.has(tag.name_en || tag.name))
+        .map((tag) => tag.id);
+    }
     await adminRest("/rest/v1/rpc/set_article_tags", {
       method: "POST",
       body: JSON.stringify({ p_article_id: saved.id, p_tag_ids: selectedIds })
@@ -259,7 +263,7 @@ export async function deleteCategory(id: string) {
 
 export async function listTags() {
   return await adminRest<any[]>(
-    "/rest/v1/tags?select=id,name,slug,created_at,updated_at&order=name.asc"
+    "/rest/v1/tags?select=id,name,name_en,name_hi,slug,created_at,updated_at&order=name_en.asc"
   );
 }
 
@@ -275,29 +279,31 @@ async function uniqueTagSlug(name: string, id?: string) {
   return base + "-" + n;
 }
 
-export async function createTag(name: string) {
-  const clean = name.trim();
-  if (!clean) throw new Error("Tag name is required");
-  const slug = await uniqueTagSlug(clean);
+export async function createTag(nameEn: string, nameHi: string) {
+  const cleanEn = nameEn.trim();
+  const cleanHi = nameHi.trim();
+  if (!cleanEn || !cleanHi) throw new Error("English and Hindi tag names are required");
+  const slug = await uniqueTagSlug(cleanEn);
   const result = await adminRest<any[]>("/rest/v1/tags", {
     method: "POST",
     headers: { prefer: "return=representation" },
-    body: JSON.stringify({ name: clean, slug })
+    body: JSON.stringify({ name: cleanEn, name_en: cleanEn, name_hi: cleanHi, slug })
   });
   revalidateTag(siteConfig.cacheTag, { expire: 0 });
   return result[0];
 }
 
-export async function updateTag(id: string, name: string) {
-  const clean = name.trim();
-  if (!clean) throw new Error("Tag name is required");
-  const slug = await uniqueTagSlug(clean, id);
+export async function updateTag(id: string, nameEn: string, nameHi: string) {
+  const cleanEn = nameEn.trim();
+  const cleanHi = nameHi.trim();
+  if (!cleanEn || !cleanHi) throw new Error("English and Hindi tag names are required");
+  const slug = await uniqueTagSlug(cleanEn, id);
   const result = await adminRest<any[]>(
     "/rest/v1/tags?id=eq." + encodeURIComponent(id),
     {
       method: "PATCH",
       headers: { prefer: "return=representation" },
-      body: JSON.stringify({ name: clean, slug })
+      body: JSON.stringify({ name: cleanEn, name_en: cleanEn, name_hi: cleanHi, slug })
     }
   );
   revalidateTag(siteConfig.cacheTag, { expire: 0 });

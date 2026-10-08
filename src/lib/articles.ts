@@ -3,7 +3,7 @@ import { type SiteLanguage, getSiteUrl, siteConfig } from "@/lib/config";
 import type { Article, Category } from "@/lib/types";
 
 const articleSelect =
-  "*,category:categories!articles_category_id_fkey(id,slug,name_en,name_hi,sort_order),cover:media!articles_cover_media_id_fkey(id,mime,width,height,bytes,alt_text)";
+  "*,category:categories!articles_category_id_fkey(id,slug,name_en,name_hi,sort_order),cover:media!articles_cover_media_id_fkey(id,mime,width,height,bytes,alt_text),tag_links:article_tags!article_tags_article_id_fkey(tag_id,tag:tags!article_tags_tag_id_fkey(id,name,name_en,name_hi,slug))";
 
 function languageValue(language?: SiteLanguage) {
   return language || undefined;

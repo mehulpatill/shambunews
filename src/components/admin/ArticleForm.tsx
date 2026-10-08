@@ -54,7 +54,9 @@ export default function ArticleForm({
   });
 
   const [excerptTouched, setExcerptTouched] = useState(Boolean(article?.excerpt));
-  const [selectedTags, setSelectedTags] = useState<string[]>(Array.isArray(article?.tags) ? article.tags : []);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(
+    Array.isArray(article?.tag_links) ? article.tag_links.map((link: any) => link.tag_id) : []
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,7 +83,7 @@ export default function ArticleForm({
 
     const payload = {
       ...form,
-      tags: selectedTags.slice(0, 20),
+      tag_ids: selectedTagIds.slice(0, 20),
       published_at: fromISTDateTimeValue(form.published_at)
     };
 
@@ -182,7 +184,7 @@ export default function ArticleForm({
               {availableTags.length ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {availableTags.map((tag) => {
-                    const checked = selectedTags.includes(tag.name);
+                    const checked = selectedTagIds.includes(tag.id);
                     return (
                       <label
                         key={tag.id}
@@ -193,14 +195,14 @@ export default function ArticleForm({
                           type="checkbox"
                           checked={checked}
                           onChange={() =>
-                            setSelectedTags((current) =>
+                            setSelectedTagIds((current) =>
                               checked
-                                ? current.filter((name) => name !== tag.name)
-                                : [...current, tag.name]
+                                ? current.filter((id) => id !== tag.id)
+                                : [...current, tag.id]
                             )
                           }
                         />
-                        {tag.name}
+                        {form.language === "hi" ? tag.name_hi : tag.name_en}
                       </label>
                     );
                   })}

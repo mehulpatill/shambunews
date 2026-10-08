@@ -108,17 +108,22 @@ export default async function ArticlePage({
                   dangerouslySetInnerHTML={{ __html: article.body_html }}
                 />
 
-                {article.tags?.length ? (
+                {article.tag_links?.length ? (
                   <div className="tag-row">
-                    {article.tags.map((tag, index) => (
-                      <Link
-                        className="tag"
-                        href={"/search?q=" + encodeURIComponent(tag) + "&lang=" + language}
-                        key={tag + "-" + index}
-                      >
-                        {tag}
-                      </Link>
-                    ))}
+                    {article.tag_links.map((link) => {
+                      const tag = link.tag;
+                      if (!tag) return null;
+                      const label = language === "hi" ? tag.name_hi : tag.name_en;
+                      return (
+                        <Link
+                          className="tag"
+                          href={"/search?q=" + encodeURIComponent(tag.name_en) + "&lang=" + language}
+                          key={link.tag_id}
+                        >
+                          {label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>

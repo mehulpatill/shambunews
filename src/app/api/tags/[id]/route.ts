@@ -7,9 +7,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await requireToken();
     const { id } = await params;
     const body = await request.json();
-    const name = String(body.name || "").trim();
-    if (!name) return NextResponse.json({ error: "Tag name is required" }, { status: 400 });
-    return NextResponse.json(await updateTag(id, name));
+    const nameEn = String(body.name_en || "").trim();
+    const nameHi = String(body.name_hi || "").trim();
+    if (!nameEn || !nameHi) return NextResponse.json({ error: "English and Hindi tag names are required" }, { status: 400 });
+    return NextResponse.json(await updateTag(id, nameEn, nameHi));
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Update failed" }, { status: error?.status || 400 });
   }

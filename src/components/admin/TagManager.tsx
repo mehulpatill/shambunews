@@ -3,10 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+function previewSlug(value: string) {
+  return value.trim().toLowerCase().normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s+/g, "-").replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "") || "tag";
+}
+
 export default function TagManager({ initial }: { initial: any[] }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
-  const [name, setName] = useState("");
+  const [form, setForm] = useState({ name_en: "", name_hi: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -17,7 +24,7 @@ export default function TagManager({ initial }: { initial: any[] }) {
     const response = await fetch("/api/tags", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name })
+      body: JSON.stringify(form)
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -25,20 +32,22 @@ export default function TagManager({ initial }: { initial: any[] }) {
       setSaving(false);
       return;
     }
-    setItems((current) => [...current, data].sort((a, b) => a.name.localeCompare(b.name)));
-    setName("");
+    setItems((current) => [...current, data].sort((a, b) => a.name_en.localeCompare(b.name_en)));
+    setForm({ name_en: "", name_hi: "" });
     setSaving(false);
     router.refresh();
   }
 
   async function edit(item: any) {
-    const nextName = window.prompt("Tag name", item.name);
-    if (nextName === null) return;
+    const nameEn = window.prompt("English name", item.name_en);
+    if (nameEn === null) return;
+    const nameHi = window.prompt("Hindi name", item.name_hi);
+    if (nameHi === null) return;
 
     const response = await fetch("/api/tags/" + item.id, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: nextName })
+      body: JSON.stringify({ name_en: nameEn, name_hi: nameHi })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -46,13 +55,14 @@ export default function TagManager({ initial }: { initial: any[] }) {
       return;
     }
     setItems((current) =>
-      current.map((x) => (x.id === item.id ? data : x)).sort((a, b) => a.name.localeCompare(b.name))
+      current.map((x) => (x.id === item.id ? data : x))
+        .sort((a, b) => a.name_en.localeCompare(b.name_en))
     );
     router.refresh();
   }
 
   async function remove(item: any) {
-    if (!window.confirm("Delete tag " + item.name + "?")) return;
+    if (!window.confirm("Delete tag " + item.name_en + "?")) return;
     const response = await fetch("/api/tags/" + item.id, { method: "DELETE" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -66,15 +76,14 @@ export default function TagManager({ initial }: { initial: any[] }) {
   return (
     <section className="admin-card">
       <form onSubmit={add} className="category-create-grid">
-        <input
-          className="input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Tag name"
-          required
-        />
+        <input className="input" value={form.name_en}
+          onChange={(e) => setForm({ ...form, name_en: e.target.value })}
+          placeholder="English name" required />
+        <input className="input" value={form.name_hi}
+          onChange={(e) => setForm({ ...form, name_hi: e.target.value })}
+          placeholder="Hindi name" required />
         <div className="input meta" style={{ display: "flex", alignItems: "center" }}>
-          /{name ? name.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "") || "tag" : "slug-auto"}
+          /{form.name_en ? previewSlug(form.name_en) : "slug-auto"}
         </div>
         <button className="btn primary" disabled={saving}>
           {saving ? "Adding…" : "Add tag"}
@@ -86,13 +95,12 @@ export default function TagManager({ initial }: { initial: any[] }) {
       {items.length ? (
         <div className="table-wrap">
           <table>
-            <thead>
-              <tr><th>Name</th><th>Slug</th><th /></tr>
-            </thead>
+            <thead><tr><th>English</th><th>Hindi</th><th>Slug</th><th /></tr></thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
-                  <td><strong>{item.name}</strong></td>
+                  <td><strong>{item.name_en}</strong></td>
+                  <td>{item.name_hi}</td>
                   <td>/{item.slug}</td>
                   <td style={{ display: "flex", gap: 7 }}>
                     <button className="btn" type="button" onClick={() => edit(item)}>Edit</button>

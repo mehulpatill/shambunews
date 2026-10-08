@@ -62,10 +62,20 @@ create index if not exists articles_views_idx
 create table if not exists public.tags (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  name_en text,
+  name_hi text,
   slug text not null unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.tags add column if not exists name_en text;
+alter table public.tags add column if not exists name_hi text;
+update public.tags set name_en = coalesce(name_en, name), name_hi = coalesce(name_hi, name);
+alter table public.tags alter column name_en set not null;
+alter table public.tags alter column name_hi set not null;
+
+create unique index if not exists tags_name_en_lower_idx on public.tags(lower(name_en));
 
 create table if not exists public.article_tags (
   article_id uuid not null,
@@ -102,7 +112,7 @@ set search_path = public
 as $$
   update public.articles a
   set tags = coalesce((
-    select array_agg(t.name order by t.name)
+    select array_agg(t.name_en order by t.name_en)
     from public.article_tags atg
     join public.tags t on t.id = atg.tag_id
     where atg.article_id = p_article_id
