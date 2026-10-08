@@ -38,6 +38,7 @@ export default async function Articles() {
                 <tr>
                   <th>Headline</th>
                   <th>Section</th>
+                  <th>Language</th>
                   <th>Status</th>
                   <th>Updated</th>
                   <th />
@@ -51,6 +52,7 @@ export default async function Articles() {
                       <div className="meta">/{article.slug}</div>
                     </td>
                     <td>{article.categories?.[0]?.category?.name || "—"}</td>
+                    <td>{article.language === "HI" ? "हिंदी" : "English"}{article.isBreaking ? " · Breaking" : ""}</td>
                     <td>
                       <span className={`status status-${article.status.toLowerCase()}`}>
                         {article.status}

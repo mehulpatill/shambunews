@@ -6,6 +6,7 @@ import ArticleCard from "@/components/ArticleCard";
 import { getAdSettings, getArticleBySlug, getRelatedArticles } from "@/lib/queries";
 import { formatDate } from "@/lib/format";
 import AdSlot from "@/components/AdSlot";
+import ViewTracker from "@/components/ViewTracker";
 
 export const dynamic = "force-dynamic";
 
@@ -63,8 +64,9 @@ export default async function ArticlePage({
   if (!article) notFound();
 
   const category = article.categories?.[0]?.category;
+  const language = article.language === "HI" ? "hi" : "en";
   const [related, ads] = await Promise.all([
-    getRelatedArticles(category?.slug, article.slug),
+    getRelatedArticles(category?.slug, article.slug, language),
     getAdSettings()
   ]);
 
@@ -86,12 +88,13 @@ export default async function ArticlePage({
   };
 
   return (
-    <PublicShell>
+    <PublicShell language={language}>
       <div className="article-page">
         <div className="container">
           <AdSlot settings={ads} placement="articleTop" />
 
           <article className="article-wrap">
+            <ViewTracker articleId={article.id} />
             <div className="article-topline">
               <span className="eyebrow">{category?.name || "News"}</span>
               {category && (
@@ -100,7 +103,9 @@ export default async function ArticlePage({
             </div>
 
             <header className="article-head">
-              <div className="eyebrow">Reported story</div>
+              <div className="eyebrow">
+                {language === "hi" ? "हिंदी रिपोर्ट" : "English report"}
+              </div>
               <h1>{article.title}</h1>
               {article.excerpt && <p className="article-dek">{article.excerpt}</p>}
               <div className="byline">
@@ -130,7 +135,7 @@ export default async function ArticlePage({
 
             <div className="article-content-row">
               <div>
-                <div className="article-body"
+                <div className="article-body" lang={language}
                   dangerouslySetInnerHTML={{
                     __html: contentToHtml(article.content || "")
                   }}

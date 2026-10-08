@@ -4,6 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import MediaUploader from "@/components/admin/MediaUploader";
 
+function toLocalDateTimeValue(value: string | Date | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 export default function ArticleForm({
   article,
   categories,
@@ -20,8 +28,11 @@ export default function ArticleForm({
     content: article?.content || "Write your story here…",
     featuredImage: article?.featuredImage || "",
     imageAlt: article?.imageAlt || "",
+    language: article?.language || "EN",
     status: article?.status || "DRAFT",
     featured: article?.featured || false,
+    isBreaking: article?.isBreaking || false,
+    publishedAt: toLocalDateTimeValue(article?.publishedAt),
     seoTitle: article?.seoTitle || "",
     seoDescription: article?.seoDescription || "",
     categoryId: article?.categories?.[0]?.categoryId || "",
@@ -63,6 +74,7 @@ export default function ArticleForm({
 
     const payload = {
       ...form,
+      publishedAt: form.publishedAt ? new Date(form.publishedAt).toISOString() : null,
       seoTitle: form.seoTitle || form.title,
       seoDescription: form.seoDescription || form.excerpt
     };
@@ -154,6 +166,19 @@ export default function ArticleForm({
         <div>
           <div className="admin-card">
             <div className="field">
+              <label>Language</label>
+              <select
+                className="select"
+                value={form.language}
+                onChange={(e) => set("language", e.target.value)}
+              >
+                <option value="EN">English</option>
+                <option value="HI">हिंदी</option>
+              </select>
+              <div className="meta">Choose the language of this story for the public language filter.</div>
+            </div>
+
+            <div className="field">
               <label>Status</label>
               <select
                 className="select"
@@ -172,7 +197,7 @@ export default function ArticleForm({
                 gap: 9,
                 alignItems: "center",
                 fontSize: 13,
-                marginBottom: 16
+                marginBottom: 10
               }}
             >
               <input
@@ -182,6 +207,36 @@ export default function ArticleForm({
               />
               Featured story
             </label>
+
+            <label
+              style={{
+                display: "flex",
+                gap: 9,
+                alignItems: "center",
+                fontSize: 13,
+                marginBottom: 16
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={form.isBreaking}
+                onChange={(e) => set("isBreaking", e.target.checked)}
+              />
+              Breaking news
+            </label>
+
+            <div className="field">
+              <label>Publish time</label>
+              <input
+                className="input"
+                type="datetime-local"
+                value={form.publishedAt}
+                onChange={(e) => set("publishedAt", e.target.value)}
+              />
+              <div className="meta">
+                Set a future time to schedule a published story. Leave blank to publish immediately.
+              </div>
+            </div>
 
             <div className="field">
               <label>Category</label>

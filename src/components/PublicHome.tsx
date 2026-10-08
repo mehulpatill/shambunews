@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
-import { getAdSettings, getPublishedArticles, getPublishedCategories } from "@/lib/queries";
+import { getAdSettings, getMostReadArticles, getPublishedArticles, getPublishedCategories, type SiteLanguage } from "@/lib/queries";
 import AdSlot from "@/components/AdSlot";
 
 function StoryImage({ article, className = "" }: { article: any; className?: string }) {
@@ -18,11 +18,12 @@ function StoryImage({ article, className = "" }: { article: any; className?: str
   );
 }
 
-export default async function PublicHome() {
-  const [articles, categories, ads] = await Promise.all([
-    getPublishedArticles(12),
-    getPublishedCategories(),
-    getAdSettings()
+export default async function PublicHome({ language = "en" }: { language?: SiteLanguage }) {
+  const [articles, categories, ads, mostRead] = await Promise.all([
+    getPublishedArticles(12, language),
+    getPublishedCategories(language),
+    getAdSettings(),
+    getMostReadArticles(5, language)
   ]);
 
   const lead = articles[0];
@@ -51,10 +52,16 @@ export default async function PublicHome() {
       <div className="container">
         <AdSlot settings={ads} placement="homepageTop" />
 
+        <div className="language-filter" aria-label="Filter by language">
+          <span className="language-filter-label">Edition</span>
+          <Link className={language === "en" ? "active" : ""} href="/?lang=en">English</Link>
+          <Link className={language === "hi" ? "active" : ""} href="/?lang=hi">हिंदी</Link>
+        </div>
+
         <section>
           <div className="section-bar">
             <div>
-              <div className="eyebrow">The front page</div>
+              <div className="eyebrow">{language === "hi" ? "हिंदी संस्करण" : "English edition"}</div>
               <h2>Today’s lead</h2>
             </div>
             <span className="meta">{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date())}</span>
@@ -127,6 +134,26 @@ export default async function PublicHome() {
             </aside>
           </div>
         </section>
+
+        {mostRead.length ? (
+          <section className="section-block most-read-block">
+            <div className="section-bar">
+              <div>
+                <div className="eyebrow">Audience</div>
+                <h2>Most read</h2>
+              </div>
+            </div>
+            <div className="most-read-list">
+              {mostRead.map((article: any, index: number) => (
+                <Link key={article.id} className="most-read-item" href={"/news/" + article.slug}>
+                  <span className="most-read-number">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="most-read-title">{article.title}</span>
+                  <span className="most-read-views">{article.views} views</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {more.length ? (
           <section className="section-block">

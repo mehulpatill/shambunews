@@ -19,6 +19,11 @@ enum ArticleStatus {
   ARCHIVED
 }
 
+enum ArticleLanguage {
+  EN
+  HI
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -39,8 +44,11 @@ model Article {
   content         String
   featuredImage   String?
   imageAlt        String?
+  language        ArticleLanguage  @default(EN)
   status          ArticleStatus   @default(DRAFT)
   featured        Boolean         @default(false)
+  isBreaking      Boolean         @default(false)
+  views           Int             @default(0)
   seoTitle        String?
   seoDescription  String?
   publishedAt     DateTime?
@@ -52,7 +60,10 @@ model Article {
   tags            ArticleTag[]
 
   @@index([status, publishedAt])
+  @@index([language, status, publishedAt])
   @@index([featured, status])
+  @@index([isBreaking, status, publishedAt])
+  @@index([views, status])
   @@index([authorId])
 }
 

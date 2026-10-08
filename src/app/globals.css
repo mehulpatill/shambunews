@@ -44,6 +44,19 @@ img{max-width:100%}
 .primary-nav a:hover{background:#f3f0ea;color:var(--red)}
 .primary-nav a.search-link{margin-left:auto}
 
+.language-filter{display:flex;align-items:center;gap:0;margin:0 0 22px;border:1px solid var(--line-dark);width:max-content;background:var(--surface);font:700 10px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.language-filter-label{padding:10px 12px;color:var(--muted);border-right:1px solid var(--line)}
+.language-filter a{padding:10px 14px;color:var(--muted)}
+.language-filter a:hover,.language-filter a.active{background:var(--ink);color:#fff}
+
+.breaking-bar{background:#b1161f;color:#fff;border-bottom:1px solid #861018}
+.breaking-inner{min-height:35px;display:flex;align-items:center;gap:13px;overflow:hidden}
+.breaking-label{font:700 9px/1 Arial,sans-serif;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap}
+.breaking-track{display:flex;gap:28px;overflow-x:auto;scrollbar-width:none;white-space:nowrap}
+.breaking-track::-webkit-scrollbar{display:none}
+.breaking-track a{font:600 11px/1.2 Arial,sans-serif}
+.breaking-track a:hover{text-decoration:underline}
+
 .page{padding:34px 0 74px}
 .eyebrow{font:700 10px/1.2 Arial,sans-serif;text-transform:uppercase;letter-spacing:.14em;color:var(--red)}
 .section-bar{display:flex;align-items:baseline;justify-content:space-between;gap:18px;padding:10px 0 11px;border-top:3px solid var(--ink);border-bottom:1px solid var(--line-dark);margin-bottom:22px}
@@ -86,6 +99,14 @@ img{max-width:100%}
 .sidebar-item h4 a:hover{color:var(--red)}
 
 .section-block{margin-top:46px}
+.most-read-list{border-top:1px solid var(--line-dark);border-bottom:1px solid var(--line-dark)}
+.most-read-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:15px;padding:15px 0;border-bottom:1px solid var(--line)}
+.most-read-item:last-child{border-bottom:0}
+.most-read-item:hover .most-read-title{color:var(--red)}
+.most-read-number{font:700 11px/1 Arial,sans-serif;color:var(--red)}
+.most-read-title{font-size:22px;line-height:1.15}
+.most-read-views{font:700 9px/1 Arial,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+
 .section-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line-dark);border-bottom:1px solid var(--line-dark)}
 .section-story{padding:18px 18px 22px;border-right:1px solid var(--line)}
 .section-story:last-child{border-right:0}

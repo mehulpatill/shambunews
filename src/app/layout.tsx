@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { db } from "@/lib/db";
-import { getPublishedCategories } from "@/lib/queries";
+import { getBreakingArticles, getPublishedCategories, type SiteLanguage } from "@/lib/queries";
 import Brand from "@/components/Brand";
 
 export const metadata: Metadata = {
@@ -19,7 +19,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   );
 }
 
-export async function PublicShell({ children }: { children: React.ReactNode }) {
+export async function PublicShell({
+  children,
+  language
+}: {
+  children: React.ReactNode;
+  language?: SiteLanguage;
+}) {
   let settings: any = {
     siteName: "Shambunews",
     tagline: "News that matters. Stories that stay.",
@@ -30,7 +36,8 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
     settings = await db.siteSetting.findUnique({ where: { id: "main" } }) || settings;
   } catch {}
 
-  const categories = await getPublishedCategories();
+  const categories = await getPublishedCategories(language);
+  const breaking = await getBreakingArticles(5, language);
   const today = new Intl.DateTimeFormat("en-IN", { dateStyle: "full" }).format(new Date());
 
   return (
@@ -44,6 +51,23 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="utility-right">
               <span>{today}</span>
+              <div style={{ display: "inline-flex", gap: 8 }}>
+                <Link
+                  className={language !== "hi" ? "utility-link" : undefined}
+                  href="/?lang=en"
+                  aria-current={language === "en" ? "page" : undefined}
+                >
+                  English
+                </Link>
+                <span>·</span>
+                <Link
+                  className={language !== "hi" ? undefined : "utility-link"}
+                  href="/?lang=hi"
+                  aria-current={language === "hi" ? "page" : undefined}
+                >
+                  हिंदी
+                </Link>
+              </div>
               <Link className="utility-link" href="/admin">Editorial login</Link>
             </div>
           </div>
@@ -76,6 +100,21 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
         </div>
+
+        {breaking.length > 0 && (
+          <div className="breaking-bar" aria-label="Breaking news">
+            <div className="container breaking-inner">
+              <span className="breaking-label">Breaking</span>
+              <div className="breaking-track">
+                {breaking.map((article) => (
+                  <Link key={article.id} href={"/news/" + article.slug}>
+                    {article.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main>{children}</main>
