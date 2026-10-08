@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { incrementView } from "@/lib/articles";
 
 export async function POST(
   _request: Request,
@@ -7,23 +7,13 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  const article = await db.article.findFirst({
-    where: {
-      id,
-      status: "PUBLISHED",
-      publishedAt: { lte: new Date() }
-    },
-    select: { id: true }
-  });
-
-  if (!article) {
-    return NextResponse.json({ error: "Article not found" }, { status: 404 });
+  try {
+    await incrementView(id);
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || "Could not update views" },
+      { status: 400 }
+    );
   }
-
-  await db.article.update({
-    where: { id },
-    data: { views: { increment: 1 } }
-  });
-
-  return NextResponse.json({ ok: true });
 }

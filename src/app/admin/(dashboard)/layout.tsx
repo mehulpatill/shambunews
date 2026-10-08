@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { clearSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Brand from "@/components/Brand";
+import { requireAdminPage, signOut } from "@/lib/auth";
 
-export default function AdminDashboardLayout({
+export default async function AdminDashboardLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
+  const user = await requireAdminPage();
+
   return (
     <div className="admin-shell">
       <div className="admin-wrap">
@@ -21,21 +23,18 @@ export default function AdminDashboardLayout({
             <Link href="/admin">Dashboard</Link>
             <Link href="/admin/articles">Articles</Link>
             <Link href="/admin/articles/new">New article</Link>
-            <Link href="/admin/categories">Categories</Link>
-            <Link href="/admin/tags">Tags</Link>
-            <Link href="/admin/advertising">Advertising</Link>
-            <Link href="/admin/settings">Settings</Link>
+            <Link href="/admin/categories">Sections</Link>
           </nav>
 
           <div className="admin-sidebar-note">
             <strong>Shambunews</strong>
-            <span>Publishing desk</span>
+            <span>{user.email || "Editorial desk"}</span>
           </div>
 
           <form
             action={async () => {
               "use server";
-              await clearSession();
+              await signOut();
               redirect("/admin/login");
             }}
             className="admin-signout"

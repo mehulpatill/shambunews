@@ -3,9 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicShell } from "@/app/layout";
 import ArticleCard from "@/components/ArticleCard";
-import { getAdSettings, getArticleBySlug, getRelatedArticles } from "@/lib/queries";
+import { categoryName, getArticleBySlug, getRelatedArticles, mediaUrl } from "@/lib/articles";
+import { getSiteUrl, type SiteLanguage } from "@/lib/config";
 import { formatDate } from "@/lib/format";
-import AdSlot from "@/components/AdSlot";
 import ViewTracker from "@/components/ViewTracker";
 
 export const dynamic = "force-dynamic";
@@ -16,42 +16,23 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article: any = await getArticleBySlug(slug);
+  const article = await getArticleBySlug(slug);
   if (!article) return {};
 
+  const image = mediaUrl(article.cover_media_id);
+
   return {
-    title: article.seoTitle || article.title,
-    description: article.seoDescription || article.excerpt || undefined,
+    title: article.title,
+    description: article.excerpt || undefined,
+    alternates: { canonical: getSiteUrl().replace(/\/$/, "") + "/news/" + article.slug },
     openGraph: {
+      type: "article",
       title: article.title,
       description: article.excerpt || undefined,
-      images: article.featuredImage ? [article.featuredImage] : []
-    },
-    alternates: { canonical: "/news/" + article.slug }
+      url: getSiteUrl().replace(/\/$/, "") + "/news/" + article.slug,
+      images: image ? [{ url: image }] : []
+    }
   };
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function contentToHtml(content: string) {
-  const newline = String.fromCharCode(10);
-
-  return content
-    .split(newline + newline)
-    .map((raw) => {
-      const block = escapeHtml(raw.trim()).split(newline).join("<br />");
-      if (block.startsWith("## ")) return "<h2>" + block.slice(3) + "</h2>";
-      if (block.startsWith("> ")) return "<blockquote>" + block.slice(2) + "</blockquote>";
-      return "<p>" + block + "</p>";
-    })
-    .join("");
 }
 
 export default async function ArticlePage({
@@ -60,46 +41,39 @@ export default async function ArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const article: any = await getArticleBySlug(slug);
+  const article = await getArticleBySlug(slug);
   if (!article) notFound();
 
-  const category = article.categories?.[0]?.category;
-  const language = article.language === "HI" ? "hi" : "en";
-  const [related, ads] = await Promise.all([
-    getRelatedArticles(category?.slug, article.slug, language),
-    getAdSettings()
-  ]);
-
-  const shareUrl =
-    (process.env.NEXT_PUBLIC_SITE_URL || "") + "/news/" + article.slug;
-
+  const language: SiteLanguage = article.language;
+  const related = await getRelatedArticles(article.category_id, article.slug, language);
+  const image = mediaUrl(article.cover_media_id);
+  const url = getSiteUrl().replace(/\/$/, "") + "/news/" + article.slug;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     headline: article.title,
-    description: article.excerpt,
-    datePublished: article.publishedAt,
-    dateModified: article.updatedAt || article.publishedAt,
-    author: {
-      "@type": "Person",
-      name: article.author?.name || "Shambhu Desk"
-    },
-    image: article.featuredImage ? [article.featuredImage] : []
+    description: article.excerpt || undefined,
+    datePublished: article.published_at,
+    dateModified: article.updated_at,
+    mainEntityOfPage: url,
+    author: { "@type": "Organization", name: "Shambunews" },
+    image: image ? [image] : []
   };
 
   return (
-    <PublicShell language={language}>
+    <PublicShell
+      language={language}
+      languageLinks={{ en: "/?lang=en", hi: "/?lang=hi" }}
+    >
       <div className="article-page">
         <div className="container">
-          <AdSlot settings={ads} placement="articleTop" />
-
           <article className="article-wrap">
             <ViewTracker articleId={article.id} />
             <div className="article-topline">
-              <span className="eyebrow">{category?.name || "News"}</span>
-              {category && (
-                <Link href={"/category/" + category.slug}>More in {category.name} →</Link>
-              )}
+              <span className="eyebrow">{categoryName(article.category, language)}</span>
+              <Link href={"/category/" + article.category?.slug + "?lang=" + language}>
+                {language === "hi" ? "सेक्शन देखें →" : "More in section →"}
+              </Link>
             </div>
 
             <header className="article-head">
@@ -109,9 +83,9 @@ export default async function ArticlePage({
               <h1>{article.title}</h1>
               {article.excerpt && <p className="article-dek">{article.excerpt}</p>}
               <div className="byline">
-                <span>By {article.author?.name || "Shambhu Desk"}</span>
+                <span>{language === "hi" ? "शम्बुन्यूज़ डेस्क" : "Shambunews Desk"}</span>
                 <span>•</span>
-                <span>{formatDate(article.publishedAt)}</span>
+                <span>{formatDate(article.published_at, language)}</span>
               </div>
             </header>
 
@@ -120,36 +94,29 @@ export default async function ArticlePage({
               dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
 
-            {article.featuredImage && (
+            {image && (
               <>
-                <img
-                  className="article-image"
-                  src={article.featuredImage}
-                  alt={article.imageAlt || article.title}
-                />
-                {article.imageAlt && (
-                  <div className="article-caption">{article.imageAlt}</div>
-                )}
+                <img className="article-image" src={image} alt={article.title} />
               </>
             )}
 
             <div className="article-content-row">
               <div>
-                <div className="article-body" lang={language}
-                  dangerouslySetInnerHTML={{
-                    __html: contentToHtml(article.content || "")
-                  }}
+                <div
+                  className="article-body rich-article-body"
+                  lang={language}
+                  dangerouslySetInnerHTML={{ __html: article.body_html }}
                 />
 
                 {article.tags?.length ? (
                   <div className="tag-row">
-                    {article.tags.map((tagLink: any) => (
+                    {article.tags.map((tag, index) => (
                       <Link
                         className="tag"
-                        href={"/search?q=" + encodeURIComponent(tagLink.tag.name)}
-                        key={tagLink.tag.id}
+                        href={"/search?q=" + encodeURIComponent(tag) + "&lang=" + language}
+                        key={tag + "-" + index}
                       >
-                        {tagLink.tag.name}
+                        {tag}
                       </Link>
                     ))}
                   </div>
@@ -157,13 +124,10 @@ export default async function ArticlePage({
               </div>
 
               <aside className="article-tools">
-                <div className="label">Share</div>
+                <div className="label">{language === "hi" ? "शेयर" : "Share"}</div>
                 <a
                   className="tool-link"
-                  href={
-                    "https://www.facebook.com/sharer/sharer.php?u=" +
-                    encodeURIComponent(shareUrl)
-                  }
+                  href={"https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(url)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -171,12 +135,7 @@ export default async function ArticlePage({
                 </a>
                 <a
                   className="tool-link"
-                  href={
-                    "https://twitter.com/intent/tweet?text=" +
-                    encodeURIComponent(article.title) +
-                    "&url=" +
-                    encodeURIComponent(shareUrl)
-                  }
+                  href={"https://twitter.com/intent/tweet?text=" + encodeURIComponent(article.title) + "&url=" + encodeURIComponent(url)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -184,32 +143,25 @@ export default async function ArticlePage({
                 </a>
                 <a
                   className="tool-link"
-                  href={
-                    "mailto:?subject=" +
-                    encodeURIComponent(article.title) +
-                    "&body=" +
-                    encodeURIComponent(shareUrl)
-                  }
+                  href={"mailto:?subject=" + encodeURIComponent(article.title) + "&body=" + encodeURIComponent(url)}
                 >
                   Email
                 </a>
               </aside>
             </div>
-
-            <AdSlot settings={ads} placement="articleBottom" />
           </article>
 
           {related.length ? (
             <section className="related-section">
               <div className="section-bar">
                 <div>
-                  <div className="eyebrow">Keep reading</div>
-                  <h2>More from {category?.name || "the newsroom"}</h2>
+                  <div className="eyebrow">{language === "hi" ? "आगे पढ़ें" : "Keep reading"}</div>
+                  <h2>{language === "hi" ? "और खबरें" : "More stories"}</h2>
                 </div>
               </div>
               <div className="section-grid">
-                {related.map((item: any) => (
-                  <ArticleCard key={item.id} article={item} />
+                {related.map((item) => (
+                  <ArticleCard key={item.id} article={item} language={language} />
                 ))}
               </div>
             </section>

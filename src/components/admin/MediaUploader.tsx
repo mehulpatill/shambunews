@@ -1,41 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-export default function MediaUploader({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+async function resizeImage(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Image must be smaller than 8 MB.");
 
-  async function upload(file: File) {
-    setBusy(true); setMsg("");
-    try {
-      const provider = process.env.NEXT_PUBLIC_MEDIA_PROVIDER || "s3";
-      if (provider === "cloudinary") {
-        const form = new FormData(); form.append("file", file);
-        const response = await fetch("/api/media/upload", { method: "POST", body: form });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Cloudinary upload failed");
-        onChange(result.url);
-      } else {
-        const presign = await fetch("/api/media/presign", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ filename: file.name, contentType: file.type }) });
-        const result = await presign.json();
-        if (!presign.ok) throw new Error(result.error || "Could not prepare upload");
-        const put = await fetch(result.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
-        if (!put.ok) throw new Error("S3 upload failed");
-        onChange(result.url);
-      }
-      setMsg("Uploaded");
-    } catch (error: any) {
-      setMsg(error?.message || "Upload failed");
-    } finally {
-      setBusy(false);
-    }
+  const source = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Could not read image."));
+      img.src = source;
+    });
+
+    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image processing unavailable.");
+    ctx.drawImage(image, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 0.86)
+    );
+    if (!blob) throw new Error("Could not prepare image.");
+    return { blob, width, height };
+  } finally {
+    URL.revokeObjectURL(source);
   }
+}
 
-  return <div>
-    <input className="input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) upload(file); }} />
-    {busy && <div className="meta" style={{ marginTop: 7 }}>Uploading…</div>}
-    {msg && <div className="meta" style={{ marginTop: 7 }}>{msg}</div>}
-    {value && <div style={{ marginTop: 10 }}><img src={value} alt="Selected featured image" style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", border: "1px solid #ddd" }} /></div>}
-  </div>;
+export default function MediaUploader({
+  value,
+  onChange
+}: {
+  value?: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const input = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  return (
+    <div className="media-uploader">
+      {value ? (
+        <div className="media-preview">
+          <img src={value.startsWith("/media/") ? value : value} alt="" />
+          <button type="button" className="btn" onClick={() => onChange(null)}>Remove cover</button>
+        </div>
+      ) : (
+        <button type="button" className="btn" onClick={() => input.current?.click()} disabled={busy}>
+          {busy ? "Uploading…" : "Upload cover image"}
+        </button>
+      )}
+
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          event.currentTarget.value = "";
+          if (!file) return;
+
+          setBusy(true);
+          setError("");
+          try {
+            const resized = await resizeImage(file);
+            const form = new FormData();
+            form.set("file", new File([resized.blob], "cover.webp", { type: "image/webp" }));
+            form.set("width", String(resized.width));
+            form.set("height", String(resized.height));
+            const response = await fetch("/admin/api/upload", { method: "POST", body: form });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Upload failed");
+            onChange("/media/" + data.id);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Upload failed");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {error && <div className="notice">{error}</div>}
+    </div>
+  );
 }

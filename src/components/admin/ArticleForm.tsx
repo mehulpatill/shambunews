@@ -1,339 +1,227 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import ArticleEditor from "@/components/admin/ArticleEditor";
 import MediaUploader from "@/components/admin/MediaUploader";
 
-function toLocalDateTimeValue(value: string | Date | null | undefined) {
+function toISTDateTimeValue(value: string | Date | null | undefined) {
   if (!value) return "";
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
+  return new Date(value)
+    .toLocaleString("sv-SE", {
+      timeZone: "Asia/Kolkata",
+      hour12: false
+    })
+    .replace(" ", "T")
+    .slice(0, 16);
+}
+
+function fromISTDateTimeValue(value: string) {
+  if (!value) return null;
+  const [date, time] = value.split("T");
+  return new Date(date + "T" + time + ":00+05:30").toISOString();
+}
+
+function plainTextFromHtml(html: string) {
+  if (typeof window === "undefined") return "";
+  const element = document.createElement("div");
+  element.innerHTML = html;
+  return (element.textContent || "").replace(/\s+/g, " ").trim();
 }
 
 export default function ArticleForm({
   article,
-  categories,
-  tags
+  categories
 }: {
   article?: any;
   categories: any[];
-  tags: any[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState({
     title: article?.title || "",
     excerpt: article?.excerpt || "",
-    content: article?.content || "Write your story here…",
-    featuredImage: article?.featuredImage || "",
-    imageAlt: article?.imageAlt || "",
-    language: article?.language || "EN",
-    status: article?.status || "DRAFT",
-    featured: article?.featured || false,
-    isBreaking: article?.isBreaking || false,
-    publishedAt: toLocalDateTimeValue(article?.publishedAt),
-    seoTitle: article?.seoTitle || "",
-    seoDescription: article?.seoDescription || "",
-    categoryId: article?.categories?.[0]?.categoryId || "",
-    tagIds: article?.tags?.map((x: any) => x.tagId) || []
+    body_html: article?.body_html || "<p>Write your story here…</p>",
+    language: article?.language || "en",
+    category_id: article?.category_id || categories[0]?.id || "",
+    cover_media_id: article?.cover_media_id || null,
+    status: article?.status || "draft",
+    published_at: toISTDateTimeValue(article?.published_at),
+    is_featured: Boolean(article?.is_featured),
+    is_breaking: Boolean(article?.is_breaking),
+    tags: Array.isArray(article?.tags) ? article.tags : []
   });
 
-  const [seoTitleTouched, setSeoTitleTouched] = useState(Boolean(article?.seoTitle?.trim()));
-  const [seoDescriptionTouched, setSeoDescriptionTouched] = useState(Boolean(article?.seoDescription?.trim()));
-  const [loading, setLoading] = useState(false);
+  const [excerptTouched, setExcerptTouched] = useState(Boolean(article?.excerpt));
+  const [tagText, setTagText] = useState(Array.isArray(article?.tags) ? article.tags.join(", ") : "");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const set = (key: string, value: any) => {
+  const summaryPreview = useMemo(() => plainTextFromHtml(form.body_html).slice(0, 240), [form.body_html]);
+
+  function setField(key: string, value: any) {
     setForm((current) => ({ ...current, [key]: value }));
-  };
+  }
 
-  const updateTitle = (value: string) => {
+  function updateBody(html: string) {
     setForm((current) => ({
       ...current,
-      title: value,
-      seoTitle: seoTitleTouched ? current.seoTitle : value
+      body_html: html,
+      excerpt: excerptTouched
+        ? current.excerpt
+        : plainTextFromHtml(html).slice(0, 280)
     }));
-  };
+  }
 
-  const updateExcerpt = (value: string) => {
-    setForm((current) => ({
-      ...current,
-      excerpt: value,
-      seoDescription: seoDescriptionTouched ? current.seoDescription : value
-    }));
-  };
-
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
     setError("");
-
-    const endpoint = article ? `/api/articles/${article.id}` : "/api/articles";
-    const method = article ? "PUT" : "POST";
 
     const payload = {
       ...form,
-      publishedAt: form.publishedAt ? new Date(form.publishedAt).toISOString() : null,
-      seoTitle: form.seoTitle || form.title,
-      seoDescription: form.seoDescription || form.excerpt
+      tags: tagText
+        .split(",")
+        .map((tag: string) => tag.trim())
+        .filter(Boolean)
+        .slice(0, 20),
+      published_at: fromISTDateTimeValue(form.published_at)
     };
 
-    const r = await fetch(endpoint, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    const response = await fetch(
+      article ? "/api/articles/" + article.id : "/api/articles",
+      {
+        method: article ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      }
+    );
 
-    const data = await r.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (!r.ok) {
-      setError(data.error || "Could not save");
-      setLoading(false);
+    if (!response.ok) {
+      setError(data.error || "Could not save article.");
+      setSaving(false);
       return;
     }
 
     router.push("/admin/articles");
     router.refresh();
-  };
+  }
 
   return (
     <form onSubmit={submit}>
       <div className="form-grid">
         <div>
-          <div className="admin-card">
+          <section className="admin-card">
             <div className="field">
-              <label>Headline</label>
+              <label htmlFor="article-title">Headline</label>
               <input
+                id="article-title"
                 className="input"
                 value={form.title}
-                onChange={(e) => updateTitle(e.target.value)}
+                onChange={(e) => setField("title", e.target.value)}
                 required
               />
             </div>
 
             <div className="field">
-              <label>Short description</label>
+              <label htmlFor="article-excerpt">Summary</label>
               <textarea
+                id="article-excerpt"
                 className="textarea"
                 rows={4}
                 value={form.excerpt}
-                onChange={(e) => updateExcerpt(e.target.value)}
-                placeholder="A short summary of the story"
+                onChange={(e) => {
+                  setExcerptTouched(true);
+                  setField("excerpt", e.target.value);
+                }}
+                placeholder="Optional summary. It auto-fills from the story until you edit it."
               />
+              {summaryPreview && !excerptTouched && (
+                <div className="meta">Auto summary preview: {summaryPreview}</div>
+              )}
             </div>
 
             <div className="field">
-              <label>Story content</label>
-              <textarea
-                className="textarea editor"
-                value={form.content}
-                onChange={(e) => set("content", e.target.value)}
-                required
-              />
-              <div className="meta">
-                Supports plain paragraphs, <code>## headings</code> and <code>&gt; quotes</code>.
-              </div>
+              <label>Story</label>
+              <ArticleEditor initialHtml={form.body_html} onChange={updateBody} />
             </div>
-
-            <div className="field">
-              <label>Featured image</label>
-              <MediaUploader
-                value={form.featuredImage}
-                onChange={(value) => set("featuredImage", value)}
-              />
-              <input
-                className="input"
-                style={{ marginTop: 10 }}
-                value={form.featuredImage}
-                onChange={(e) => set("featuredImage", e.target.value)}
-                placeholder="Or paste an existing image URL"
-              />
-            </div>
-
-            <div className="field">
-              <label>Image alt text</label>
-              <input
-                className="input"
-                value={form.imageAlt}
-                onChange={(e) => set("imageAlt", e.target.value)}
-                placeholder="Describe the image"
-              />
-            </div>
-          </div>
+          </section>
         </div>
 
         <div>
-          <div className="admin-card">
+          <section className="admin-card">
             <div className="field">
               <label>Language</label>
-              <select
-                className="select"
-                value={form.language}
-                onChange={(e) => set("language", e.target.value)}
-              >
-                <option value="EN">English</option>
-                <option value="HI">हिंदी</option>
-              </select>
-              <div className="meta">Choose the language of this story for the public language filter.</div>
-            </div>
-
-            <div className="field">
-              <label>Status</label>
-              <select
-                className="select"
-                value={form.status}
-                onChange={(e) => set("status", e.target.value)}
-              >
-                <option>DRAFT</option>
-                <option>PUBLISHED</option>
-                <option>ARCHIVED</option>
+              <select className="select" value={form.language} onChange={(e) => setField("language", e.target.value)}>
+                <option value="en">English</option>
+                <option value="hi">हिंदी</option>
               </select>
             </div>
 
-            <label
-              style={{
-                display: "flex",
-                gap: 9,
-                alignItems: "center",
-                fontSize: 13,
-                marginBottom: 10
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(e) => set("featured", e.target.checked)}
-              />
-              Featured story
-            </label>
-
-            <label
-              style={{
-                display: "flex",
-                gap: 9,
-                alignItems: "center",
-                fontSize: 13,
-                marginBottom: 16
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={form.isBreaking}
-                onChange={(e) => set("isBreaking", e.target.checked)}
-              />
-              Breaking news
-            </label>
-
             <div className="field">
-              <label>Publish time</label>
-              <input
-                className="input"
-                type="datetime-local"
-                value={form.publishedAt}
-                onChange={(e) => set("publishedAt", e.target.value)}
-              />
-              <div className="meta">
-                Set a future time to schedule a published story. Leave blank to publish immediately.
-              </div>
-            </div>
-
-            <div className="field">
-              <label>Category</label>
-              <select
-                className="select"
-                value={form.categoryId}
-                onChange={(e) => set("categoryId", e.target.value)}
-              >
-                <option value="">Select category</option>
+              <label>Section</label>
+              <select className="select" value={form.category_id} onChange={(e) => setField("category_id", e.target.value)} required>
+                <option value="">Select section</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.name}
+                    {category.name_en} / {category.name_hi}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="field">
-              <label>Tags</label>
-              <div style={{ display: "grid", gap: 7 }}>
-                {tags.map((tag) => (
-                  <label
-                    key={tag.id}
-                    style={{ fontSize: 13, display: "flex", gap: 7, alignItems: "center" }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form.tagIds.includes(tag.id)}
-                      onChange={(e) =>
-                        set(
-                          "tagIds",
-                          e.target.checked
-                            ? [...form.tagIds, tag.id]
-                            : form.tagIds.filter((id: string) => id !== tag.id)
-                        )
-                      }
-                    />
-                    {tag.name}
-                  </label>
-                ))}
-              </div>
+              <label>Cover image</label>
+              <MediaUploader
+                value={form.cover_media_id ? "/media/" + form.cover_media_id : null}
+                onChange={(value) => setField("cover_media_id", value?.replace("/media/", "") || null)}
+              />
             </div>
 
             <div className="field">
-              <label>SEO title</label>
+              <label>Tags</label>
               <input
                 className="input"
-                value={seoTitleTouched ? form.seoTitle : form.title}
-                onFocus={() => {
-                  if (!seoTitleTouched) {
-                    setSeoTitleTouched(true);
-                    setForm((current) => ({ ...current, seoTitle: current.title }));
-                  }
-                }}
-                onChange={(e) => {
-                  setSeoTitleTouched(true);
-                  set("seoTitle", e.target.value);
-                }}
+                value={tagText}
+                onChange={(e) => setTagText(e.target.value)}
+                placeholder="comma, separated, topics"
               />
-              <div className="meta">Auto-generated from the headline. Edit it to customize.</div>
             </div>
 
             <div className="field">
-              <label>SEO description</label>
-              <textarea
-                className="textarea"
-                rows={5}
-                value={seoDescriptionTouched ? form.seoDescription : form.excerpt}
-                onFocus={() => {
-                  if (!seoDescriptionTouched) {
-                    setSeoDescriptionTouched(true);
-                    setForm((current) => ({ ...current, seoDescription: current.excerpt }));
-                  }
-                }}
-                onChange={(e) => {
-                  setSeoDescriptionTouched(true);
-                  set("seoDescription", e.target.value);
-                }}
-              />
-              <div className="meta">Auto-generated from the short description. Edit it to customize.</div>
+              <label>Status</label>
+              <select className="select" value={form.status} onChange={(e) => setField("status", e.target.value)}>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
             </div>
 
-            {error && (
-              <div
-                className="notice"
-                style={{
-                  background: "#fff0f0",
-                  borderColor: "#f1c0c0",
-                  color: "#8c1717"
-                }}
-              >
-                {error}
-              </div>
-            )}
+            <div className="field">
+              <label>Publish time (IST)</label>
+              <input
+                className="input"
+                type="datetime-local"
+                value={form.published_at}
+                onChange={(e) => setField("published_at", e.target.value)}
+              />
+              <div className="meta">Choose a future time to schedule a published story.</div>
+            </div>
 
-            <button className="btn primary" style={{ width: "100%" }} disabled={loading}>
-              {loading ? "Saving…" : article ? "Save changes" : "Create article"}
+            <label className="check-row">
+              <input type="checkbox" checked={form.is_featured} onChange={(e) => setField("is_featured", e.target.checked)} />
+              Featured story
+            </label>
+
+            <label className="check-row">
+              <input type="checkbox" checked={form.is_breaking} onChange={(e) => setField("is_breaking", e.target.checked)} />
+              Breaking news
+            </label>
+
+            {error && <div className="notice danger-notice">{error}</div>}
+
+            <button className="btn primary" style={{ width: "100%" }} disabled={saving}>
+              {saving ? "Saving…" : article ? "Update story" : "Save story"}
             </button>
 
             {article && (
@@ -342,16 +230,18 @@ export default function ArticleForm({
                 className="btn danger"
                 style={{ width: "100%", marginTop: 9 }}
                 onClick={async () => {
-                  if (confirm("Delete this article?")) {
-                    await fetch(`/api/articles/${article.id}`, { method: "DELETE" });
+                  if (!window.confirm("Delete this story?")) return;
+                  const response = await fetch("/api/articles/" + article.id, { method: "DELETE" });
+                  if (response.ok) {
                     router.push("/admin/articles");
+                    router.refresh();
                   }
                 }}
               >
-                Delete article
+                Delete story
               </button>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </form>

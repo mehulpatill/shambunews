@@ -1,3 +1,29 @@
 import type { MetadataRoute } from "next";
-import { db } from "@/lib/db";
-export default async function sitemap():Promise<MetadataRoute.Sitemap>{const base=process.env.NEXT_PUBLIC_SITE_URL||"http://localhost:3000";let articles:any[]=[];try{articles=await db.article.findMany({where:{status:"PUBLISHED",publishedAt:{lte:new Date()}},select:{slug:true,updatedAt:true,publishedAt:true}})}catch{}return [{url:base,lastModified:new Date(),changeFrequency:"hourly",priority:1},{url:`${base}/search`,priority:.5},...articles.map(a=>({url:`${base}/news/${a.slug}`,lastModified:a.updatedAt||a.publishedAt,changeFrequency:"daily" as const,priority:.8}))]}
+import { getCategories, getPublishedArticles } from "@/lib/articles";
+import { getSiteUrl } from "@/lib/config";
+
+export const dynamic = "force-dynamic";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const base = getSiteUrl().replace(/\/$/, "");
+  const [categories, articles] = await Promise.all([
+    getCategories(),
+    getPublishedArticles(1000)
+  ]);
+
+  return [
+    { url: base, changeFrequency: "hourly", priority: 1 },
+    { url: base + "/search", changeFrequency: "daily", priority: 0.5 },
+    ...categories.map((category) => ({
+      url: base + "/category/" + category.slug + "?lang=en",
+      changeFrequency: "hourly" as const,
+      priority: 0.7
+    })),
+    ...articles.map((article) => ({
+      url: base + "/news/" + article.slug,
+      lastModified: new Date(article.updated_at),
+      changeFrequency: "daily" as const,
+      priority: 0.8
+    }))
+  ];
+}

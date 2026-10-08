@@ -1,40 +1,30 @@
 {
   "name": "shambhu-news",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "lint": "next lint"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.930.0",
-    "@aws-sdk/s3-request-presigner": "^3.930.0",
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
-    "bcryptjs": "^3.0.2",
-    "jose": "^6.1.0",
-    "next": "^16.3.3",
-    "pg": "^8.16.3",
+    "@tiptap/extension-image": "^3.0.0",
+    "@tiptap/extension-link": "^3.0.0",
+    "@tiptap/react": "^3.0.0",
+    "@tiptap/starter-kit": "^3.0.0",
+    "next": "^16.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "sanitize-html": "^2.17.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "dotenv": "^17.2.3",
-    "prisma": "^7.9.1",
-    "tsx": "^4.20.6",
+    "@types/sanitize-html": "^2.16.0",
     "typescript": "^5.9.3"
   }
 }

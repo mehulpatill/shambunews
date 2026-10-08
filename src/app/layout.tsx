@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
-import { db } from "@/lib/db";
-import { getBreakingArticles, getPublishedCategories, type SiteLanguage } from "@/lib/queries";
 import Brand from "@/components/Brand";
+import { getCategories, getBreakingArticles } from "@/lib/articles";
+import { categoryName } from "@/lib/articles";
+import { getSiteUrl, type SiteLanguage } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: { default: "Shambunews", template: "%s | Shambunews" },
   description: "Independent news, sharp analysis, and stories from India and beyond.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000")
+  metadataBase: new URL(getSiteUrl())
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body>{children}</body>
@@ -21,49 +24,47 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 
 export async function PublicShell({
   children,
-  language
+  language,
+  languageLinks = { en: "/?lang=en", hi: "/?lang=hi" }
 }: {
   children: React.ReactNode;
-  language?: SiteLanguage;
+  language: SiteLanguage;
+  languageLinks?: { en: string; hi: string };
 }) {
-  let settings: any = {
-    siteName: "Shambunews",
-    tagline: "News that matters. Stories that stay.",
-    footerText: "© 2026 Shambunews. All rights reserved."
-  };
+  const [categories, breaking] = await Promise.all([
+    getCategories(),
+    getBreakingArticles(language, 5)
+  ]);
 
-  try {
-    settings = await db.siteSetting.findUnique({ where: { id: "main" } }) || settings;
-  } catch {}
-
-  const categories = await getPublishedCategories();
-  const breaking = await getBreakingArticles(5, language);
-  const today = new Intl.DateTimeFormat("en-IN", { dateStyle: "full" }).format(new Date());
+  const today = new Intl.DateTimeFormat(
+    language === "hi" ? "hi-IN" : "en-IN",
+    { dateStyle: "full", timeZone: "Asia/Kolkata" }
+  ).format(new Date());
 
   return (
-    <>
+    <div lang={language}>
       <header className="site-header">
         <div className="header-utility">
           <div className="container header-utility-inner">
             <div className="utility-left">
-              <span className="utility-live">Live desk</span>
-              <span className="utility-link">India &amp; world</span>
+              <span className="utility-live">{language === "hi" ? "लाइव डेस्क" : "Live desk"}</span>
+              <span className="utility-link">
+                {language === "hi" ? "भारत और दुनिया" : "India & world"}
+              </span>
             </div>
             <div className="utility-right">
               <span>{today}</span>
-              <div style={{ display: "inline-flex", gap: 8 }}>
+              <div className="language-switch">
                 <Link
-                  className={language !== "hi" ? "utility-link" : undefined}
-                  href="/?lang=en"
-                  aria-current={language === "en" ? "page" : undefined}
+                  className={language === "en" ? "language-active" : "utility-link"}
+                  href={languageLinks.en}
                 >
                   English
                 </Link>
                 <span>·</span>
                 <Link
-                  className={language !== "hi" ? undefined : "utility-link"}
-                  href="/?lang=hi"
-                  aria-current={language === "hi" ? "page" : undefined}
+                  className={language === "hi" ? "language-active" : "utility-link"}
+                  href={languageLinks.hi}
                 >
                   हिंदी
                 </Link>
@@ -75,36 +76,45 @@ export async function PublicShell({
 
         <div className="container masthead">
           <div className="masthead-side">
-            <strong>Independent journalism</strong>
-            Reporting, context and stories worth reading.
+            <strong>{language === "hi" ? "स्वतंत्र पत्रकारिता" : "Independent journalism"}</strong>
+            {language === "hi"
+              ? "रिपोर्टिंग, संदर्भ और पढ़ने लायक कहानियाँ।"
+              : "Reporting, context and stories worth reading."}
           </div>
 
           <Brand />
 
           <div className="masthead-side right">
-            <strong>{settings.tagline || "News that matters. Stories that stay."}</strong>
-            <Link href="/search">Search the archive →</Link>
+            <strong>{language === "hi" ? "जो मायने रखता है, वह खबर यहाँ है।" : "News that matters. Stories that stay."}</strong>
+            <Link href={"/search?lang=" + language}>
+              {language === "hi" ? "आर्काइव खोजें →" : "Search the archive →"}
+            </Link>
           </div>
         </div>
 
         <div className="primary-nav-wrap">
           <div className="container">
             <nav className="primary-nav" aria-label="Primary navigation">
-              <Link href="/">Home</Link>
+              <Link href={language === "en" ? "/?lang=en" : "/?lang=hi"}>{language === "hi" ? "होम" : "Home"}</Link>
               {categories.map((category) => (
-                <Link key={category.id} href={"/category/" + category.slug}>
-                  {category.name}
+                <Link
+                  key={category.id}
+                  href={"/category/" + category.slug + "?lang=" + language}
+                >
+                  {categoryName(category, language)}
                 </Link>
               ))}
-              <Link className="search-link" href="/search">Search ↗</Link>
+              <Link className="search-link" href={"/search?lang=" + language}>
+                {language === "hi" ? "खोज ↗" : "Search ↗"}
+              </Link>
             </nav>
           </div>
         </div>
 
         {breaking.length > 0 && (
-          <div className="breaking-bar" aria-label="Breaking news">
+          <div className="breaking-bar" aria-label={language === "hi" ? "ब्रेकिंग न्यूज़" : "Breaking news"}>
             <div className="container breaking-inner">
-              <span className="breaking-label">Breaking</span>
+              <span className="breaking-label">{language === "hi" ? "ब्रेकिंग" : "Breaking"}</span>
               <div className="breaking-track">
                 {breaking.map((article) => (
                   <Link key={article.id} href={"/news/" + article.slug}>
@@ -124,32 +134,36 @@ export async function PublicShell({
           <div>
             <Brand compact />
             <p style={{ marginTop: 12, maxWidth: 390 }}>
-              {settings.tagline || "News that matters. Stories that stay."}
+              {language === "hi"
+                ? "स्वतंत्र समाचार, तेज़ संदर्भ और भारत से दुनिया तक की कहानियाँ।"
+                : "Independent news, sharp context and stories from India to the world."}
             </p>
           </div>
+
           <div>
-            <h2 className="footer-title">Sections</h2>
+            <h2 className="footer-title">{language === "hi" ? "सेक्शन" : "Sections"}</h2>
             <div className="footer-links">
-              {categories.slice(0, 8).map((category) => (
-                <Link key={category.id} href={"/category/" + category.slug}>
-                  {category.name}
+              {categories.map((category) => (
+                <Link key={category.id} href={"/category/" + category.slug + "?lang=" + language}>
+                  {categoryName(category, language)}
                 </Link>
               ))}
             </div>
           </div>
+
           <div>
-            <h2 className="footer-title">Archive</h2>
+            <h2 className="footer-title">{language === "hi" ? "आर्काइव" : "Archive"}</h2>
             <div className="footer-links">
-              <Link href="/search">Search stories</Link>
-              <Link href="/admin">Editorial admin</Link>
+              <Link href={"/search?lang=" + language}>{language === "hi" ? "कहानियाँ खोजें" : "Search stories"}</Link>
+              <Link href="/admin">{language === "hi" ? "एडिटोरियल एडमिन" : "Editorial admin"}</Link>
             </div>
           </div>
         </div>
 
-        <div className="container" style={{ marginTop: 26, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          <p>{settings.footerText || "© 2026 Shambunews. All rights reserved."}</p>
+        <div className="container footer-bottom">
+          <p>© 2026 Shambunews. {language === "hi" ? "सर्वाधिकार सुरक्षित।" : "All rights reserved."}</p>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

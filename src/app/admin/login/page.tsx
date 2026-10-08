@@ -11,7 +11,7 @@ export default function LoginPage() {
         <div className="kicker">Editorial access</div>
         <h1 className="admin-login-title">Sign in to the newsroom</h1>
         <p className="admin-login-copy">
-          Manage published stories, sections, tags and site settings from the Shambunews desk.
+          Publish, schedule and manage Shambunews stories.
         </p>
         <LoginForm />
       </div>

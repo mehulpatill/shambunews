@@ -1,39 +1,43 @@
 import Link from "next/link";
+import { categoryName, mediaUrl } from "@/lib/articles";
 import { formatDate } from "@/lib/format";
+import type { SiteLanguage } from "@/lib/config";
 
 function StoryImage({ article, className = "" }: { article: any; className?: string }) {
-  if (!article?.featuredImage) {
-    return <div className={`${className} media-placeholder`}>Shambunews</div>;
+  const source = mediaUrl(article.cover_media_id);
+  if (!source) {
+    return <div className={className + " media-placeholder"}>Shambunews</div>;
   }
 
-  return (
-    <img
-      src={article.featuredImage}
-      alt={article.imageAlt || article.title}
-      className={className}
-      loading="lazy"
-    />
-  );
+  return <img src={source} alt={article.cover?.alt_text || article.title} className={className} loading="lazy" />;
 }
 
-export default function ArticleCard({ article, featured = false }: { article: any; featured?: boolean }) {
-  const category = article.categories?.[0]?.category?.name || "News";
+export default function ArticleCard({
+  article,
+  language,
+  featured = false
+}: {
+  article: any;
+  language: SiteLanguage;
+  featured?: boolean;
+}) {
+  const category = categoryName(article.category, language);
 
   if (featured) {
     return (
       <article className="hero-copy">
         <div className="eyebrow">{category}</div>
-        <h1>
-          <Link href={`/news/${article.slug}`}>{article.title}</Link>
-        </h1>
+        <h1><Link href={"/news/" + article.slug}>{article.title}</Link></h1>
         {article.excerpt && <p className="hero-dek">{article.excerpt}</p>}
         <div className="byline">
-          <span>{article.author?.name || "Shambhu Desk"}</span>
+          <span>{language === "hi" ? "शम्बुन्यूज़ डेस्क" : "Shambunews Desk"}</span>
           <span>•</span>
-          <span>{formatDate(article.publishedAt)}</span>
+          <span>{formatDate(article.published_at, language)}</span>
         </div>
         <div className="hero-actions">
-          <Link href={`/news/${article.slug}`} className="btn primary">Read story</Link>
+          <Link href={"/news/" + article.slug} className="btn primary">
+            {language === "hi" ? "पूरी कहानी" : "Read story"}
+          </Link>
         </div>
       </article>
     );
@@ -41,15 +45,13 @@ export default function ArticleCard({ article, featured = false }: { article: an
 
   return (
     <article className="section-story">
-      <Link href={`/news/${article.slug}`}>
+      <Link href={"/news/" + article.slug}>
         <StoryImage article={article} className="section-story-image" />
       </Link>
       <div className="eyebrow" style={{ marginTop: 13 }}>{category}</div>
-      <h3>
-        <Link href={`/news/${article.slug}`}>{article.title}</Link>
-      </h3>
+      <h3><Link href={"/news/" + article.slug}>{article.title}</Link></h3>
       {article.excerpt && <p>{article.excerpt}</p>}
-      <div className="meta" style={{ marginTop: 10 }}>{formatDate(article.publishedAt)}</div>
+      <div className="meta" style={{ marginTop: 10 }}>{formatDate(article.published_at, language)}</div>
     </article>
   );
 }

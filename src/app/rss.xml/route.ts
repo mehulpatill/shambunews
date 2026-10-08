@@ -1,21 +1,18 @@
-import { db } from "@/lib/db";
+import { getPublishedArticles, mediaUrl } from "@/lib/articles";
+import { getSiteUrl } from "@/lib/config";
 
 function escapeXml(value: string) {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 export async function GET() {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const items = await db.article.findMany({
-    where: { status: "PUBLISHED", publishedAt: { lte: new Date() } },
-    orderBy: { publishedAt: "desc" },
-    take: 30,
-    select: { title: true, slug: true, excerpt: true, publishedAt: true }
-  });
+  const base = getSiteUrl().replace(/\/$/, "");
+  const items = await getPublishedArticles(30);
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -29,7 +26,8 @@ export async function GET() {
       "<link>" + escapeXml(base + "/news/" + article.slug) + "</link>" +
       "<guid isPermaLink=\"true\">" + escapeXml(base + "/news/" + article.slug) + "</guid>" +
       (article.excerpt ? "<description>" + escapeXml(article.excerpt) + "</description>" : "") +
-      "<pubDate>" + new Date(article.publishedAt!).toUTCString() + "</pubDate>" +
+      (mediaUrl(article.cover_media_id) ? "<enclosure url=\"" + escapeXml(mediaUrl(article.cover_media_id)!) + "\" type=\"image/jpeg\" />" : "") +
+      "<pubDate>" + new Date(article.published_at!).toUTCString() + "</pubDate>" +
       "</item>"
     ),
     "</channel></rss>"

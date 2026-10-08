@@ -1,184 +1,153 @@
 import Link from "next/link";
+import ArticleCard from "@/components/ArticleCard";
+import {
+  getFeaturedArticles,
+  getHomepageSections,
+  getMostReadArticles,
+  getPublishedArticles,
+  mediaUrl,
+  categoryName,
+  getBreakingArticles
+} from "@/lib/articles";
+import type { SiteLanguage } from "@/lib/config";
 import { formatDate } from "@/lib/format";
-import { getAdSettings, getMostReadArticles, getPublishedArticles, getPublishedCategories, type SiteLanguage } from "@/lib/queries";
-import AdSlot from "@/components/AdSlot";
 
-function StoryImage({ article, className = "" }: { article: any; className?: string }) {
-  if (!article?.featuredImage) {
-    return <div className={`${className} media-placeholder`}>Shambunews</div>;
-  }
-
-  return (
-    <img
-      src={article.featuredImage}
-      alt={article.imageAlt || article.title}
-      className={className}
-      loading="lazy"
-    />
-  );
+function imageFor(article: any) {
+  const source = mediaUrl(article.cover_media_id);
+  if (!source) return <div className="hero-media-image media-placeholder">Shambunews</div>;
+  return <img className="hero-media-image" src={source} alt={article.cover?.alt_text || article.title} />;
 }
 
-export default async function PublicHome({ language = "en" }: { language?: SiteLanguage }) {
-  const [articles, categories, ads, mostRead] = await Promise.all([
+export default async function PublicHome({ language }: { language: SiteLanguage }) {
+  const [featured, published, mostRead, sections, breaking] = await Promise.all([
+    getFeaturedArticles(language, 3),
     getPublishedArticles(12, language),
-    getPublishedCategories(language),
-    getAdSettings(),
-    getMostReadArticles(5, language)
+    getMostReadArticles(language, 5),
+    getHomepageSections(language),
+    getBreakingArticles(language, 5)
   ]);
 
-  const lead = articles[0];
+  const lead = featured[0] || published[0];
+  const topStories = (featured.length > 1 ? featured.slice(1) : published.slice(1, 4)).slice(0, 3);
+  const latest = published.filter((item) => item.id !== lead?.id).slice(0, 6);
 
   if (!lead) {
     return (
       <div className="page">
         <div className="container">
-          <div className="section-bar">
-            <div>
-              <div className="eyebrow">Shambunews</div>
-              <h1>No stories yet</h1>
-            </div>
+          <div className="empty">
+            {language === "hi"
+              ? "इस भाषा में अभी कोई प्रकाशित कहानी नहीं है।"
+              : "There are no published stories in this language yet."}
           </div>
-          <div className="empty">The newsroom has not published a story yet.</div>
         </div>
       </div>
     );
   }
 
-  const latest = articles.slice(1, 7);
-  const more = articles.slice(7, 10);
-
   return (
     <div className="page">
       <div className="container">
-        <AdSlot settings={ads} placement="homepageTop" />
-
-        <div className="language-filter" aria-label="Filter by language">
-          <span className="language-filter-label">Edition</span>
-          <Link className={language === "en" ? "active" : ""} href="/?lang=en">English</Link>
-          <Link className={language === "hi" ? "active" : ""} href="/?lang=hi">हिंदी</Link>
-        </div>
+        {breaking.length > 0 && (
+          <div className="mobile-breaking">
+            <span>{language === "hi" ? "ब्रेकिंग" : "Breaking"}</span>
+            {breaking[0].title}
+          </div>
+        )}
 
         <section>
           <div className="section-bar">
             <div>
               <div className="eyebrow">{language === "hi" ? "हिंदी संस्करण" : "English edition"}</div>
-              <h2>Today’s lead</h2>
+              <h2>{language === "hi" ? "आज की मुख्य खबर" : "Today’s lead"}</h2>
             </div>
-            <span className="meta">{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date())}</span>
+            <span className="meta">{formatDate(new Date(), language)}</span>
           </div>
 
           <div className="home-hero">
-            <div className="hero-copy">
-              <div className="eyebrow">{lead.categories?.[0]?.category?.name || "News"}</div>
-              <h1>
-                <Link href={`/news/${lead.slug}`}>{lead.title}</Link>
-              </h1>
-              {lead.excerpt && <p className="hero-dek">{lead.excerpt}</p>}
-              <div className="byline">
-                <span>{lead.author?.name || "Shambhu Desk"}</span>
-                <span>•</span>
-                <span>{formatDate(lead.publishedAt)}</span>
-              </div>
-              <div className="hero-actions">
-                <Link href={`/news/${lead.slug}`} className="btn primary">Read story</Link>
-                <Link href="/search" className="btn">Browse all</Link>
-              </div>
-            </div>
-
-            <Link href={`/news/${lead.slug}`} className="hero-media">
-              <StoryImage article={lead} className="hero-media-image" />
+            <ArticleCard article={lead} language={language} featured />
+            <Link href={"/news/" + lead.slug} className="hero-media">
+              {imageFor(lead)}
             </Link>
           </div>
         </section>
 
-        <AdSlot settings={ads} placement="homepageMid" />
+        {topStories.length > 0 && (
+          <section className="section-block">
+            <div className="section-bar">
+              <div>
+                <div className="eyebrow">{language === "hi" ? "चुनी हुई खबरें" : "Editor's desk"}</div>
+                <h2>{language === "hi" ? "टॉप स्टोरीज़" : "Top stories"}</h2>
+              </div>
+            </div>
+            <div className="section-grid">
+              {topStories.map((article: any) => (
+                <ArticleCard key={article.id} article={article} language={language} />
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="story-section">
           <div className="section-bar">
             <div>
-              <div className="eyebrow">Newsroom</div>
-              <h2>Latest stories</h2>
+              <div className="eyebrow">{language === "hi" ? "न्यूज़रूम" : "Newsroom"}</div>
+              <h2>{language === "hi" ? "ताज़ा खबरें" : "Latest stories"}</h2>
             </div>
-            <Link href="/search">See archive →</Link>
+            <Link href={"/search?lang=" + language}>{language === "hi" ? "आर्काइव →" : "See archive →"}</Link>
           </div>
 
           <div className="story-section-grid">
             <div className="latest-list">
-              {latest.length ? latest.map((article: any) => (
+              {latest.map((article: any) => (
                 <article className="latest-item" key={article.id}>
-                  <Link href={`/news/${article.slug}`}>
-                    <StoryImage article={article} className="latest-image" />
+                  <Link href={"/news/" + article.slug}>
+                    {imageFor({ ...article, cover_media_id: article.cover_media_id })}
                   </Link>
                   <div>
-                    <div className="eyebrow">{article.categories?.[0]?.category?.name || "News"}</div>
-                    <h3><Link href={`/news/${article.slug}`}>{article.title}</Link></h3>
+                    <div className="eyebrow">{categoryName(article.category, language)}</div>
+                    <h3><Link href={"/news/" + article.slug}>{article.title}</Link></h3>
                     {article.excerpt && <p>{article.excerpt}</p>}
-                    <div className="meta">{formatDate(article.publishedAt)}</div>
+                    <div className="meta">{formatDate(article.published_at, language)}</div>
                   </div>
                 </article>
-              )) : (
-                <div className="empty">More stories will appear here as the newsroom publishes them.</div>
-              )}
+              ))}
             </div>
 
             <aside className="news-sidebar">
-              <div className="eyebrow">Explore</div>
-              <h3>Sections</h3>
-              <p className="sidebar-intro">Follow the parts of the newsroom that matter to you.</p>
-              {categories.map((category: any, index: number) => (
-                <div className="sidebar-item" key={category.id}>
-                  <div className="num">{String(index + 1).padStart(2, "0")}</div>
-                  <h4><Link href={`/category/${category.slug}`}>{category.name}</Link></h4>
-                </div>
-              ))}
+              <div className="eyebrow">{language === "hi" ? "देखें" : "Explore"}</div>
+              <h3>{language === "hi" ? "सबसे ज्यादा पढ़ी गई" : "Most read"}</h3>
+              <div className="most-read-list">
+                {mostRead.map((article: any, index: number) => (
+                  <Link key={article.id} className="most-read-item" href={"/news/" + article.slug}>
+                    <span className="most-read-number">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="most-read-title">{article.title}</span>
+                    <span className="most-read-views">{article.views}</span>
+                  </Link>
+                ))}
+              </div>
             </aside>
           </div>
         </section>
 
-        {mostRead.length ? (
-          <section className="section-block most-read-block">
+        {sections.map((section) => (
+          <section key={section.category.id} className="section-block">
             <div className="section-bar">
               <div>
-                <div className="eyebrow">Audience</div>
-                <h2>Most read</h2>
+                <div className="eyebrow">{language === "hi" ? "सेक्शन" : "Section"}</div>
+                <h2>{categoryName(section.category, language)}</h2>
               </div>
-            </div>
-            <div className="most-read-list">
-              {mostRead.map((article: any, index: number) => (
-                <Link key={article.id} className="most-read-item" href={"/news/" + article.slug}>
-                  <span className="most-read-number">{String(index + 1).padStart(2, "0")}</span>
-                  <span className="most-read-title">{article.title}</span>
-                  <span className="most-read-views">{article.views} views</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {more.length ? (
-          <section className="section-block">
-            <div className="section-bar">
-              <div>
-                <div className="eyebrow">More coverage</div>
-                <h2>Keep reading</h2>
-              </div>
+              <Link href={"/category/" + section.category.slug + "?lang=" + language}>
+                {language === "hi" ? "सभी →" : "View all →"}
+              </Link>
             </div>
             <div className="section-grid">
-              {more.map((article: any) => (
-                <article className="section-story" key={article.id}>
-                  <Link href={`/news/${article.slug}`}>
-                    <StoryImage article={article} className="section-story-image" />
-                  </Link>
-                  <div className="eyebrow" style={{ marginTop: 13 }}>
-                    {article.categories?.[0]?.category?.name || "News"}
-                  </div>
-                  <h3><Link href={`/news/${article.slug}`}>{article.title}</Link></h3>
-                  {article.excerpt && <p>{article.excerpt}</p>}
-                </article>
+              {section.articles.map((article: any) => (
+                <ArticleCard key={article.id} article={article} language={language} />
               ))}
             </div>
           </section>
-        ) : null}
+        ))}
       </div>
     </div>
   );

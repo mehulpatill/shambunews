@@ -1,23 +1,21 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { listAdminArticles, listCategories } from "@/lib/admin";
 import { formatDate } from "@/lib/format";
+import ArticleFilters from "@/components/admin/ArticleFilters";
+import ArticleActions from "@/components/admin/ArticleActions";
 
 export const dynamic = "force-dynamic";
 
-export default async function Articles() {
-  await requireAdmin();
-
-  let rows: any[] = [];
-  try {
-    rows = await db.article.findMany({
-      orderBy: { updatedAt: "desc" },
-      include: {
-        author: { select: { name: true } },
-        categories: { include: { category: true } }
-      }
-    });
-  } catch {}
+export default async function ArticlesPage({
+  searchParams
+}: {
+  searchParams: Promise<{ q?: string; status?: string; language?: string }>;
+}) {
+  const filters = await searchParams;
+  const [rows, categories] = await Promise.all([
+    listAdminArticles(filters),
+    listCategories()
+  ]);
 
   return (
     <>
@@ -25,10 +23,12 @@ export default async function Articles() {
         <div>
           <div className="kicker">Editorial</div>
           <h1>Articles</h1>
-          <div className="meta">Write, edit and publish stories.</div>
+          <div className="meta">Write, edit, schedule and publish stories.</div>
         </div>
         <Link className="btn primary" href="/admin/articles/new">+ New article</Link>
       </header>
+
+      <ArticleFilters initial={filters} />
 
       <section className="admin-card">
         {rows.length ? (
@@ -40,6 +40,7 @@ export default async function Articles() {
                   <th>Section</th>
                   <th>Language</th>
                   <th>Status</th>
+                  <th>Publish time</th>
                   <th>Updated</th>
                   <th />
                 </tr>
@@ -49,20 +50,21 @@ export default async function Articles() {
                   <tr key={article.id}>
                     <td>
                       <strong>{article.title}</strong>
-                      <div className="meta">/{article.slug}</div>
+                      <div className="meta">
+                        {article.is_breaking ? "BREAKING · " : ""}
+                        /{article.slug}
+                      </div>
                     </td>
-                    <td>{article.categories?.[0]?.category?.name || "—"}</td>
-                    <td>{article.language === "HI" ? "हिंदी" : "English"}{article.isBreaking ? " · Breaking" : ""}</td>
-                    <td>
-                      <span className={`status status-${article.status.toLowerCase()}`}>
-                        {article.status}
-                      </span>
-                    </td>
-                    <td>{formatDate(article.updatedAt)}</td>
-                    <td>
-                      <Link className="btn" href={`/admin/articles/${article.id}/edit`}>
-                        Edit
-                      </Link>
+                    <td>{article.category?.name_en || "—"}</td>
+                    <td>{article.language === "hi" ? "हिंदी" : "English"}</td>
+                    <td><span className={"status status-" + article.status}>{article.status}</span></td>
+                    <td>{formatDate(article.published_at, article.language)}</td>
+                    <td>{formatDate(article.updated_at, article.language)}</td>
+                    <td style={{ minWidth: 210 }}>
+                      <div style={{ display: "grid", gap: 7 }}>
+                        <Link className="btn" href={"/admin/articles/" + article.id}>Edit</Link>
+                        <ArticleActions id={article.id} status={article.status} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -70,7 +72,7 @@ export default async function Articles() {
             </table>
           </div>
         ) : (
-          <div className="empty">No articles yet. Start with your first story.</div>
+          <div className="empty">No matching articles.</div>
         )}
       </section>
     </>

@@ -1,6 +1,6 @@
 import { PublicShell } from "@/app/layout";
 import PublicHome from "@/components/PublicHome";
-import type { SiteLanguage } from "@/lib/queries";
+import type { SiteLanguage } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
