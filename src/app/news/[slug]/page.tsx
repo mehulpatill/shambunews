@@ -7,6 +7,7 @@ import { categoryName, getArticleBySlug, getRelatedArticles, mediaUrl } from "@/
 import { getSiteUrl, type SiteLanguage } from "@/lib/config";
 import { formatDate } from "@/lib/format";
 import ViewTracker from "@/components/ViewTracker";
+import ShareLinks from "@/components/ShareLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -146,12 +147,7 @@ export default async function ArticlePage({
                 >
                   X
                 </a>
-                <a
-                  className="tool-link"
-                  href={"mailto:?subject=" + encodeURIComponent(article.title) + "&body=" + encodeURIComponent(url)}
-                >
-                  Email
-                </a>
+                <ShareLinks url={url} title={article.title} language={language} />
               </aside>
             </div>
           </article>
