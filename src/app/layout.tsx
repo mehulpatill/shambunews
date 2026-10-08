@@ -36,7 +36,7 @@ export async function PublicShell({
     settings = await db.siteSetting.findUnique({ where: { id: "main" } }) || settings;
   } catch {}
 
-  const categories = await getPublishedCategories(language);
+  const categories = await getPublishedCategories();
   const breaking = await getBreakingArticles(5, language);
   const today = new Intl.DateTimeFormat("en-IN", { dateStyle: "full" }).format(new Date());
 
