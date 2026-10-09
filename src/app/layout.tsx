@@ -53,7 +53,7 @@ export async function PublicShell({
               </span>
             </div>
             <div className="utility-right">
-              <span>{today}</span>
+              <span className="utility-date">{today}</span>
               <div className="language-switch">
                 <Link
                   className={language === "en" ? "language-active" : "utility-link"}
@@ -69,7 +69,7 @@ export async function PublicShell({
                   हिंदी
                 </Link>
               </div>
-              <Link className="utility-link" href="/admin">Editorial login</Link>
+              <Link className="utility-link utility-login" href="/admin">Editorial login</Link>
             </div>
           </div>
         </div>
