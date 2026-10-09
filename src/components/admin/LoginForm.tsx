@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -9,7 +8,6 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -17,22 +15,31 @@ export default function LoginForm() {
     setError("");
 
     try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15000);
+
       const r = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        signal: controller.signal
       });
 
+      window.clearTimeout(timeout);
+
       if (r.ok) {
-        router.push("/admin");
-        router.refresh();
+        window.location.assign("/admin");
         return;
       }
 
       const data = await r.json().catch(() => ({}));
       setError(data.error || "Login failed");
-    } catch {
-      setError("Unable to connect to the server");
+    } catch (error) {
+      setError(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "Login timed out. Please try again."
+          : "Unable to connect to the server"
+      );
     } finally {
       setLoading(false);
     }
